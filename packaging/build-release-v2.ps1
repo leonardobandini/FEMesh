@@ -17,7 +17,9 @@ if ($RebuildExisting) {
         throw 'Refusing to replace a directory not recognized as a generated V2 package.'
     }
     Remove-Item -LiteralPath $stage -Recurse -Force
-    foreach ($file in @($zipPath, "$zipPath.sha256", $brandedZip, "$brandedZip.sha256", $sourceZip, "$sourceZip.sha256")) {
+    $publicZip = Join-Path $artifacts "FEMesh-$version.zip"
+    foreach ($file in @($zipPath, "$zipPath.sha256", $brandedZip, "$brandedZip.sha256",
+            $publicZip, "$publicZip.sha256", $sourceZip, "$sourceZip.sha256")) {
         if (Test-Path -LiteralPath $file) { Remove-Item -LiteralPath $file -Force }
     }
 }
@@ -54,6 +56,11 @@ try {
     foreach ($name in @('LICENSE','GPL-3.0.txt','LICENSE-APPLICATION.md','SAP2000-LINKING-EXCEPTION.md','THIRD_PARTY_NOTICES.md')) {
         Copy-Item -LiteralPath (Join-Path $root $name) -Destination $stage
     }
+    $sourceGuide = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'SOURCE.template.md')).Replace('{VERSION}', [string]$version)
+    [IO.File]::WriteAllText((Join-Path $stage 'SOURCE.md'), $sourceGuide, [Text.Encoding]::UTF8)
+    if ($sourceGuide -notmatch [regex]::Escape("https://github.com/leonardobandini/FEMesh/releases/tag/v$version")) {
+        throw 'The packaged corresponding-source address does not match this release.'
+    }
     Copy-Item -LiteralPath (Join-Path $pluginBuild 'docs') -Destination $stage -Recurse
     Copy-Item -LiteralPath (Join-Path $pluginBuild 'img') -Destination $stage -Recurse
     Copy-Item -LiteralPath $backend -Destination (Join-Path $stage 'mesher') -Recurse
@@ -72,14 +79,15 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Bilingual help validation failed.' }
     $trial = Join-Path $build 'upgrade-trial'
     $old = Join-Path $artifacts 'Sap2000QuadMesher-1.0.120'
-    if (-not (Test-Path -LiteralPath (Join-Path $old 'SQMPluginInstaller.exe'))) { throw 'V1 package required for V1 to V2 replacement test.' }
-    & (Join-Path $old 'SQMPluginInstaller.exe') test-install $trial
-    if ($LASTEXITCODE -ne 0) { throw 'V1 fixture installation failed.' }
-    & (Join-Path $stage 'SQMPluginInstaller.exe') test-install $trial
-    if ($LASTEXITCODE -ne 0) { throw 'V1 to V2 replacement failed.' }
-    if ((Get-Item (Join-Path $trial 'SapQuadTransitionPlugin.dll')).VersionInfo.FileVersion -ne "$version.0" -or
-        -not (Test-Path -LiteralPath (Join-Path $trial 'docs\help-gmsh-v2\index-it.html')) -or
-        (Test-Path -LiteralPath (Join-Path $trial 'docs\help\index-it.html'))) { throw 'V1 files survived replacement or V2 files are missing.' }
+    if (Test-Path -LiteralPath (Join-Path $old 'SQMPluginInstaller.exe') -PathType Leaf) {
+        & (Join-Path $old 'SQMPluginInstaller.exe') test-install $trial
+        if ($LASTEXITCODE -ne 0) { throw 'V1 fixture installation failed.' }
+        & (Join-Path $stage 'SQMPluginInstaller.exe') test-install $trial
+        if ($LASTEXITCODE -ne 0) { throw 'V1 to V2 replacement failed.' }
+        if ((Get-Item (Join-Path $trial 'SapQuadTransitionPlugin.dll')).VersionInfo.FileVersion -ne "$version.0" -or
+            -not (Test-Path -LiteralPath (Join-Path $trial 'docs\help-gmsh-v2\index-it.html')) -or
+            (Test-Path -LiteralPath (Join-Path $trial 'docs\help\index-it.html'))) { throw 'V1 files survived replacement or V2 files are missing.' }
+    }
     $previous = if ($version -eq '2.0.12') { '2.0.11' } elseif ($version -eq '2.0.13') { '2.0.12' }
         elseif ($version -eq '2.0.23') { '2.0.22' } elseif ($version -eq '2.0.24') { '2.0.23' }
         elseif ($version -eq '2.0.26') { '2.0.24' }
@@ -107,7 +115,8 @@ try {
         elseif ($version -eq '2.0.59') { '2.0.58' }
         elseif ($version -eq '2.0.60') { '2.0.59' }
         elseif ($version -eq '2.0.61') { '2.0.59' }
-        elseif ($version -eq '2.0.62') { '2.0.61' } else { '2.0.13' }
+        elseif ($version -eq '2.0.62') { '2.0.61' }
+        elseif ($version -eq '2.0.63') { '2.0.62' } else { '2.0.13' }
     $oldV2 = Join-Path $artifacts "Sap2000QuadMesher-$previous"
     if (Test-Path -LiteralPath (Join-Path $oldV2 'SQMPluginInstaller.exe') -PathType Leaf) {
         $trialV2 = Join-Path $build 'v2-upgrade-trial'
@@ -119,7 +128,7 @@ try {
             throw "V2 $previous to $version replacement failed."
         }
     }
-    $forbidden = @(Get-ChildItem -LiteralPath $stage -Recurse -File | Where-Object { $_.Name -eq 'SAP2000v1.dll' -or $_.Extension -in @('.sdb','.sbk') })
+    $forbidden = @(Get-ChildItem -LiteralPath $stage -Recurse -File | Where-Object { $_.Name -in @('SAP2000v1.dll','CSiAPIv1.dll') -or $_.Extension -in @('.sdb','.bdb','.sbk') })
     if ($forbidden.Count) { throw 'The V2 package contains SAP2000 proprietary/test model files.' }
     $zip = "$stage.zip"
     if (Test-Path -LiteralPath $zip) { throw "ZIP already exists: $zip" }
@@ -132,9 +141,18 @@ try {
         throw 'Branded ZIP differs from the legacy-compatible ZIP.'
     }
     [IO.File]::WriteAllText("$brandedZip.sha256", "$hash  $(Split-Path -Leaf $brandedZip)`n", [Text.Encoding]::ASCII)
+    $publicZip = Join-Path $artifacts "FEMesh-$version.zip"
+    if (Test-Path -LiteralPath $publicZip) { throw "FEMesh ZIP already exists: $publicZip" }
+    Copy-Item -LiteralPath $zip -Destination $publicZip
+    if ((Get-FileHash -LiteralPath $publicZip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hash) {
+        throw 'Public FEMesh ZIP differs from the legacy-compatible ZIP.'
+    }
+    [IO.File]::WriteAllText("$publicZip.sha256", "$hash  $(Split-Path -Leaf $publicZip)`n", [Text.Encoding]::ASCII)
     & python (Join-Path $PSScriptRoot 'build-source-v2.py') $version
     if ($LASTEXITCODE -ne 0) { throw 'V2 corresponding source archive failed.' }
     Copy-Item -LiteralPath $source -Destination (Join-Path $artifacts 'gmsh-4.15.2-source.tgz') -Force
+    [IO.File]::WriteAllText((Join-Path $artifacts 'gmsh-4.15.2-source.tgz.sha256'),
+        "$sourceHash  gmsh-4.15.2-source.tgz`n", [Text.Encoding]::ASCII)
     "V2_PACKAGE=$zip"; "V2_SHA256=$hash"
 } finally {
     if (Test-Path -LiteralPath $build) { Remove-Item -LiteralPath $build -Recurse -Force }

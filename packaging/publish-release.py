@@ -62,6 +62,8 @@ def assets_for(version):
              "gmsh-4.15.2-source.tgz", "gmsh-4.15.2-source.tgz.sha256"]
     if tuple(map(int, version.split('.'))) >= (2, 0, 57):
         names.extend((f"FEMesher-{version}.zip", f"FEMesher-{version}.zip.sha256"))
+    if tuple(map(int, version.split('.'))) >= (2, 0, 63):
+        names.extend((f"FEMesh-{version}.zip", f"FEMesh-{version}.zip.sha256"))
     files = {name: base / name for name in names}
     for name, path in files.items():
         if not path.is_file():
@@ -76,6 +78,10 @@ def assets_for(version):
        hashlib.sha256(files[f"FEMesher-{version}.zip"].read_bytes()).digest() != \
        hashlib.sha256(files[f"Sap2000QuadMesher-{version}.zip"].read_bytes()).digest():
         raise RuntimeError("Legacy and FEMesher ZIPs must have the same content")
+    if tuple(map(int, version.split('.'))) >= (2, 0, 63) and \
+       hashlib.sha256(files[f"FEMesh-{version}.zip"].read_bytes()).digest() != \
+       hashlib.sha256(files[f"Sap2000QuadMesher-{version}.zip"].read_bytes()).digest():
+        raise RuntimeError("Legacy and FEMesh ZIPs must have the same content")
     return files
 
 

@@ -7,7 +7,7 @@ if (Get-Process -Name SAP2000 -ErrorAction SilentlyContinue) {
     throw 'Close SAP2000 (saving your open model) before replacing the installed plugin.'
 }
 $hashFile = "$Zip.sha256"
-$match = [regex]::Match([IO.Path]::GetFileName($Zip), '^(?:Sap2000QuadMesher|FEMesher)-(2\.\d+\.\d+)\.zip$')
+$match = [regex]::Match([IO.Path]::GetFileName($Zip), '^(?:Sap2000QuadMesher|FEMesher|FEMesh)-(2\.\d+\.\d+)\.zip$')
 if (-not $match.Success) { throw 'Expected a versioned FEMesher or legacy-compatible V2 ZIP.' }
 $version = $match.Groups[1].Value
 if (-not (Test-Path -LiteralPath $Zip -PathType Leaf) -or -not (Test-Path -LiteralPath $hashFile -PathType Leaf)) {

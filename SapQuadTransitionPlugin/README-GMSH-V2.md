@@ -1,4 +1,6 @@
-# FEMesh 2.0.61 locale - SAP2000/CSiBridge
+# FEMesh 2.0.63 - SAP2000/CSiBridge
+
+**Licenze e sorgenti:** il codice originale FEMesh e Gmsh sono GPL-2.0-or-later; il binario combinato sceglie GPLv3 perché comprende anche OpenSSL 3 (Apache-2.0). L'installer contiene `SOURCE.md` con il collegamento ai sorgenti corrispondenti, al sorgente upstream Gmsh e alle licenze. La versione installabile si chiama `FEMesh-2.0.63.zip`; il link stabile è https://github.com/leonardobandini/FEMesh/releases/latest/download/FEMesh-latest.zip . I nomi tecnici precedenti restano disponibili per gli updater esistenti. Il motore di mesh è lo stesso verificato nella 2.0.62.
 
 **Procedura normale:** selezionare le aree, premere Genera, ispezionare la mesh ruotando, spostando o ingrandendo la vista e poi scegliere Applica oppure Annulla mesh. Dopo l'inserimento e il trasferimento, FEMesh blocca il modello nell'host corrente per impedire modifiche a geometria e proprietà durante l'anteprima; lo sblocca temporaneamente per Applica/Annulla mentre il viewport non è interattivo. Non cambiare la selezione: Annulla presuppone che gli oggetti originali siano rimasti intatti.
 

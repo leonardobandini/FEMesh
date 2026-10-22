@@ -4,12 +4,12 @@
 
 FEMesh è un plugin gratuito e open source per generare mesh di elementi shell prevalentemente quadrangolari in SAP2000 e CSiBridge tramite Gmsh. L'installer rileva gli host 27 e successivi che espongono `CSiAPIv1.dll` e registra **Tools → FEMesh** nei profili già inizializzati. La vecchia identità COM resta invariata per aggiornare le installazioni esistenti. Mesh e trasferimento sono stati verificati su SAP2000 e CSiBridge 27; la beta SAP2000 27.2.0 è stata provata, mentre la release finale 28 non è installata sul PC di prova.
 
-- **[Scarica sempre l'ultimo pacchetto di installazione](https://github.com/leonardobandini/FEMesh/releases/latest/download/FEMesher-latest.zip)** · [Release e sorgenti corrispondenti](https://github.com/leonardobandini/FEMesh/releases/latest).
+- **[Scarica sempre l'ultimo pacchetto di installazione](https://github.com/leonardobandini/FEMesh/releases/latest/download/FEMesh-latest.zip)** · [Release e sorgenti corrispondenti](https://github.com/leonardobandini/FEMesh/releases/latest).
 - **Installazione:** estrai lo ZIP, chiudi SAP2000/CSiBridge, esegui `install_plugin.cmd` e riavvia l'host. La [guida FEMesh](docs/help-gmsh-v2/index-it.html) comprende opzioni, limiti e esempi; [English help](docs/help-gmsh-v2/index-en.html).
 - **Sorgenti:** questo repository contiene il codice del progetto e la sua cronologia; la release include il relativo `-source.zip` e i sorgenti Gmsh upstream. [Build dai sorgenti](packaging/SOURCE_BUILD.md) · [Licenze](LICENSE-APPLICATION.md).
 - **Aggiornamenti delle installazioni precedenti:** il [feed storico](https://github.com/leonardobandini/sap2000-quad-mesher-updates) rimane attivo e pubblica lo stesso ZIP verificato sotto il nome compatibile `Sap2000QuadMesher-<versione>.zip`.
 
-La **2.0.62** mantiene tutti i nodi dei bordi O-grid sul raggio specificato usando archi circolari. La matrice atomica su copie dei modelli è **36/36 PASS** su SAP2000 e **36/36 PASS** su CSiBridge; l'help bilingue e il pacchetto installabile sono stati verificati. [Changelog](CHANGELOG.md).
+La **2.0.63** documenta la distribuzione GPLv3 del binario combinato, include `SOURCE.md` nello ZIP installabile e pubblica l'installer con il nome `FEMesh-<versione>.zip`. Mantiene la mesh verificata nella 2.0.62: tutti i nodi dei bordi O-grid rispettano il raggio specificato. Matrice atomica su copie dei modelli: **36/36 PASS** su SAP2000 e **36/36 PASS** su CSiBridge. [Changelog](CHANGELOG.md).
 
 La **2.0.54** estende FEMesh a CSiBridge, con installazione nella voce Tools di entrambi gli host, e conserva le spunte FAST/backup quando la selezione cambia dopo l'apertura della finestra. Le matrici atomiche hanno dato **36/36 PASS** su SAP2000 e **36/36 PASS** su CSiBridge con BDB salvati e riaperti. [Note di rilascio](docs/FEMESH_2_0_54_RELEASE.md).
 

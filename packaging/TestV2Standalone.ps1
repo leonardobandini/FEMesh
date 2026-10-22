@@ -2,7 +2,7 @@
 # Verify that the ZIP is self-contained after extraction, without repository paths.
 param([string]$Zip = (Join-Path (Split-Path -Parent $PSScriptRoot) 'artifacts\Sap2000QuadMesher-2.0.46.zip'))
 $ErrorActionPreference = 'Stop'
-$version = [regex]::Match([IO.Path]::GetFileName($Zip), '^(?:Sap2000QuadMesher|FEMesher)-(2\.\d+\.\d+)\.zip$').Groups[1].Value
+$version = [regex]::Match([IO.Path]::GetFileName($Zip), '^(?:Sap2000QuadMesher|FEMesher|FEMesh)-(2\.\d+\.\d+)\.zip$').Groups[1].Value
 if (-not $version) { throw 'Expected a versioned V2 ZIP.' }
 $tempParent = Join-Path $env:TEMP 'opencode'
 if (-not (Test-Path -LiteralPath $tempParent -PathType Container)) { throw 'Temporary parent missing.' }
@@ -14,6 +14,9 @@ try {
     $installer = Join-Path $unpacked 'SQMPluginInstaller.exe'
     & $installer verify $unpacked
     if ($LASTEXITCODE -ne 0) { throw 'Extracted installer failed verification.' }
+    if ([version]$version -ge [version]'2.0.63' -and -not (Test-Path -LiteralPath (Join-Path $unpacked 'SOURCE.md') -PathType Leaf)) {
+        throw 'Corresponding source link is missing from the installer ZIP.'
+    }
     & (Join-Path $unpacked 'install_plugin.cmd') verify
     if ($LASTEXITCODE -ne 0) { throw 'Extracted CMD launcher failed verification.' }
     $destination = Join-Path $trial 'installed'

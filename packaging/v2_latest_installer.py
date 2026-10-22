@@ -47,6 +47,12 @@ def ensure_latest_installer(version):
            branded_name not in assets or assets[branded_name]['digest'] != digest:
             raise ValueError('The branded versioned ZIP differs from the legacy-compatible installer')
         aliases.append('FEMesher-latest.zip')
+    if tuple(map(int, version.split('.'))) >= (2, 0, 63):
+        public_name = f'FEMesh-{version}.zip'
+        if (ROOT / 'artifacts' / public_name).read_bytes() != source.read_bytes() or \
+           public_name not in assets or assets[public_name]['digest'] != digest:
+            raise ValueError('The public FEMesh ZIP differs from the compatible installer')
+        aliases.append('FEMesh-latest.zip')
     parent = Path(tempfile.gettempdir()) / 'opencode'
     if not parent.is_dir():
         raise FileNotFoundError('Approved temporary directory is missing: ' + str(parent))

@@ -115,7 +115,7 @@ def main():
                          int.from_bytes(raw[20:24], 'big') < 760 or
                          hashlib.sha256(raw).digest() == hashlib.sha256(old_image.read_bytes()).digest()):
                     raise ValueError(name + ': missing or invalid current-interface screenshot ' + tab)
-        for marker in ((('FEMesh version · 2.0.62' if name.endswith('-en.html') else 'Versione FEMesh · 2.0.62'), 'leonardo@csi-italia.eu', 'Mesh.MeshSizeMin', 'Mesh.Smoothing', 'Mesh.AlgorithmSwitchOnFailure',
+        for marker in ((('FEMesh version · 2.0.63' if name.endswith('-en.html') else 'Versione FEMesh · 2.0.63'), 'leonardo@csi-italia.eu', 'Mesh.MeshSizeMin', 'Mesh.Smoothing', 'Mesh.AlgorithmSwitchOnFailure',
                           'Mesh.QuadqsSizemapMethod', 'Mesh.RecombineNodeRepositioning',
                           'Mesh.RecombineOptimizeTopology',
                           'Prefer regular (grid-aligned) mesh when possible' if name.endswith('-en.html') else 'Preferisci mesh regolari allineate alla griglia',

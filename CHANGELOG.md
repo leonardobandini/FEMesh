@@ -8,6 +8,11 @@ Le modifiche rilevanti saranno documentate in questo file seguendo [Keep a Chang
 
 - Ongoing development notes remain in the local reports.
 
+## [2.0.63] - 2026-10-22
+
+- Include a working `SOURCE.md` in the installer, explicitly elect GPLv3 for the combined binary while retaining GPL-2.0-or-later for the original FEMesh and Gmsh code, and document CPython/OpenSSL/libffi/PyInstaller notices and reproducible V2 build steps. Gmsh remains the unmodified official 4.15.2 wheel with its corresponding upstream source in the same release.
+- Offer identical verified installer bytes as `FEMesh-2.0.63.zip` and `FEMesh-latest.zip`, retaining the former `FEMesher-` and `Sap2000QuadMesher-` names for existing links and update clients. No meshing or transfer behavior change relative to the 2.0.62 matrix.
+
 ## [2.0.62] - 2026-10-22
 
 - Check live area/joint tables before Generate and provide a host-specific warning if the editing tables omit objects hidden by Selection Only; preserve applied numeric labels and existing preview/Undo behavior.
