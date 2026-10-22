@@ -1,0 +1,11 @@
+# SAP2000 Quad Mesher V2 2.0.32 — report qualità coerente e leggibile
+
+Il titolo del report ora indica **EXCELLENT QUALITY / QUALITÀ ECCELLENTE** quando il controllo aggregato è superato e tutte le metriche visualizzate sono nel livello eccellente (≥0,75). Con almeno una metrica soltanto accettabile rimane **ACCEPTABLE QUALITY**; se un controllo aggregato non passa, il titolo continua a chiedere di verificare le metriche. Non cambiano Gmsh, la mesh generata, il punteggio, le soglie né il conteggio delle eccezioni.
+
+La release include anche la pulizia locale 2.0.31: i vecchi controlli V1 (inclusa la Tolleranza parzialmente coperta dalle schede) non vengono più aggiunti alla finestra V2; le loro preferenze salvate non possono riattivare silenziosamente una modalità di mesh nascosta. Le impostazioni V2 visibili continuano a essere ripristinate.
+
+Il riepilogo superiore del report qualità si dispone su più righe anche quando contiene numeri lunghi e mostra per intero il totale degli elementi non validi. Il riepilogo a due righe nella finestra delle opzioni ha più spazio verticale. La guida e le etichette rimangono bilingui.
+
+**Riproduzione sul modello SAP aperto:** `Circular_Floor.sdb`, 8 aree e selezione di 176 frame/281 nodi, Reset defaults con max 0,5 m e min 0 m. L'anteprima 2.0.31 ha generato **1.449 shell (1.163 quad, 286 triangoli)** con qualità di forma 0,899/1 e tutti i marcatori EXCELLENT, ma il titolo precedente mostrava ACCEPTABLE QUALITY. Il report continua a dichiarare 73 eccezioni dimensionali sul 6,997% della superficie e 0 elementi invalidi. Il file SDB originale è rimasto invariato (SHA-256 `CA15037D18AC9351DCCBFF17F9DE507A1A45E1EC80EABCB1F605442AB83FA3BD`); alla chiusura dell'anteprima l'istanza SAP è tornata alle otto aree. La build 2.0.32 verifica l'etichetta corretta, il riepilogo completo in inglese e italiano, la disposizione dei quattro pulsanti e la guida offline con test UI mirati. Non si attribuisce una nuova prova SAP end-to-end al codice di sola presentazione.
+
+Pacchetto x64/.NET Framework 4.8 con backend Gmsh 4.15.2 incluso e archivio GPL dei sorgenti corrispondenti. La V1 storica, la conformità topologica e il criterio dimensionale della 2.0.30 restano invariati.

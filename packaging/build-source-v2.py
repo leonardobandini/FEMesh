@@ -1,0 +1,138 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+"""Ship complete corresponding V2 sources next to the binary installer."""
+import hashlib
+import subprocess
+import sys
+import zipfile
+from pathlib import Path
+
+import gmsh
+
+ROOT = Path(__file__).resolve().parent.parent
+ARTIFACTS = ROOT / "artifacts"
+
+
+def sha(path):
+    with path.open("rb") as stream:
+        digest = hashlib.sha256()
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+        return digest.hexdigest()
+
+
+def main(version):
+    stage = ARTIFACTS / f"Sap2000QuadMesher-{version}"
+    binary = stage / "mesher" / "_internal" / "gmsh-4.15.dll"
+    source = ROOT / "packaging" / "cache" / "gmsh-4.15.2-source.tgz"
+    if gmsh.__version__ != "4.15.2" or sha(source) != "be3f66f225d27ba9fa014f07e83169285da8a051b0e8ab7103d88066b39bdd3e":
+        raise RuntimeError("Corresponding Gmsh source or version mismatch")
+    if sha(binary) != "6cac3eefb477265d9fa60bbd869dbbbf7c7ca4cb308c0f8f2b43e91d43de3c1c":
+        raise RuntimeError("Bundled Gmsh DLL differs from pinned upstream source")
+    binding = Path(gmsh.__file__).resolve()
+    if sha(binding) != "a56ebe69dc57a3ea15eee191cae4f1881b06784174b2d9df306a98bdd8b06606":
+        raise RuntimeError("Gmsh Python binding differs from pinned source")
+    tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode("utf-8").split("\0")
+    allowed = (".py", ".cs", ".csproj", ".ps1", ".cmd", ".md", ".html", ".css",
+               ".svg", ".json", ".props", ".spec", ".txt", ".png", ".ico")
+    shipped_v2 = {"PluginV2.cs", "ModelCsvSnapshot.cs", "GmshPreviewPanel.cs",
+                  "SapGmshReplacement.csproj", "sap_gmsh_mesher.py",
+                  "README-GMSH-V2.md", "test_gmsh_v2.py",
+                  "install_plugin.cmd", "uninstall_plugin.cmd"}
+    names = {name for name in tracked if (name.startswith(("packaging/", "docs/help-gmsh-v2/")) or
+             name.startswith("SapQuadTransitionPlugin/") and name.split("/", 1)[1] in shipped_v2)
+             and name.endswith(allowed) and "/bin/" not in name and "/obj/" not in name
+             and (ROOT / name).is_file()}
+    names.update(str(path.relative_to(ROOT)).replace("\\", "/")
+                  for path in (ROOT / "docs" / "help-gmsh-v2").rglob("*") if path.is_file())
+    names.update(str(path.relative_to(ROOT)).replace("\\", "/")
+                 for path in (ROOT / "examples" / "bug17" / "geometry").glob("*")
+                 if path.is_file() and path.suffix in (".csv", ".json", ".md"))
+    names.update({
+        "SapQuadTransitionPlugin/SapGmshReplacement.csproj",
+        "SapQuadTransitionPlugin/PluginV2.cs",
+        "SapQuadTransitionPlugin/GmshPreviewPanel.cs",
+        "packaging/SQMV2Installer.csproj", "packaging/build-release-v2.ps1",
+        "packaging/build-source-v2.py", "packaging/TestV2Standalone.ps1",
+        "packaging/TestV2MenuMigration.ps1", "packaging/InstallV2FromZip.ps1",
+        "packaging/TestFEMeshHostDiscovery.ps1",
+        "tools/VerifyGmshV2Help.py", "tools/TestFEMeshBrandMigration.ps1",
+        "tools/TestFEMeshNumericTest01.ps1", "tools/ProbeBug02Snapshot.ps1",
+        "Directory.Build.props", "requirements.txt",
+        "LICENSE", "GPL-3.0.txt", "LICENSE-APPLICATION.md", "SAP2000-LINKING-EXCEPTION.md",
+        "THIRD_PARTY_NOTICES.md", "packaging/requirements-build.txt",
+        "packaging/publish-v2-feed.py", "packaging/publish-v1-v2-upgrade.py",
+        "updates/manifest-v2.json", "updates/manifest.json",
+        "tools/TestUpdateNotice.ps1",
+        "run_test01_fast.cs", "RunTest01Fast.csproj", "FastTest/RunTest01Fast.csproj",
+        "docs/GMSH_V2_TRANSFER_MATRIX_2_0_16.md", "docs/GMSH_V2_2_0_17_RELEASE.md",
+        "docs/GMSH_V2_2_0_21_RELEASE.md", "docs/GMSH_V2_2_0_22_RELEASE.md",
+        "docs/GMSH_V2_2_0_23_RELEASE.md", "docs/GMSH_V2_2_0_26_RELEASE.md",
+        "docs/GMSH_V2_2_0_28_RELEASE.md", "docs/GMSH_V2_2_0_29_RELEASE.md",
+        "docs/GMSH_V2_2_0_30_RELEASE.md", "docs/GMSH_V2_2_0_32_RELEASE.md",
+        "docs/GMSH_V2_2_0_36_RELEASE.md", "docs/GMSH_V2_2_0_37_RELEASE.md",
+        "docs/GMSH_V2_2_0_38_RELEASE.md", "docs/GMSH_V2_2_0_39_RELEASE.md",
+        "docs/GMSH_V2_2_0_40_LOCAL.md", "docs/GMSH_V2_2_0_41_RELEASE.md",
+        "docs/GMSH_V2_2_0_42_RELEASE.md",
+        "docs/GMSH_V2_2_0_43_RELEASE.md",
+        "docs/GMSH_V2_2_0_44_RELEASE.md",
+        "docs/GMSH_V2_2_0_45_RELEASE.md",
+        "docs/GMSH_V2_2_0_50_RELEASE.md",
+        "docs/GMSH_V2_2_0_52_RELEASE.md",
+        "docs/GMSH_V2_2_0_53_RELEASE.md",
+        "docs/FEMESH_2_0_54_RELEASE.md", "docs/FEMESH_MULTI_HOST_2_0_54_LOCAL.md",
+        "docs/FEMESH_2_0_59_RELEASE.md", "docs/FEMESH_2_0_61_RELEASE.md",
+        "packaging/TestFEMeshMenus.ps1", "tools/VerifyFEMeshBridgeResults.py",
+        "tools/TestFEMeshHosts.ps1",
+        "tools/UpdateFEMeshGuideBrand.py", "tools/UpdateFEMeshHelpV259.py",
+        "tools/UpdateFEMeshHelpV260.py", "tools/UpdateFEMeshHelpV261.py",
+        "reports/CONCRETE_BARRIER_2026-10-19.md",
+        "docs/GMSH_V2_NTEST026_TRIANGLE_DIAGNOSIS.md",
+        "docs/GMSH_V2_SIZE_QUALITY_POLICY.md",
+        "docs/GMSH_V2_ASSIGNMENT_VERIFICATION_BACKLOG.md", "docs/GMSH_V2_ENGINEERING_LOG.md",
+        "docs/GMSH_V2_TRANSFER_MATRIX_2_0_18.md", "docs/SAP2000_27_2_BETA_COMPATIBILITY_REPORT.md",
+        "docs/SAP2000_UNIT_CONTEXT_POLICY.md",
+        "tools/RunXApiAtomic.ps1", "tools/TrialParentChild.cs", "tools/TrialParentChild.csproj",
+        "tools/TrialSnapshotUndo.cs", "tools/TrialSnapshotUndo.csproj",
+        "tools/ProbeDesignWarning.cs", "tools/ProbeDesignWarning.csproj",
+        "tools/StageV2XApiTrial.ps1",
+        "tools/TrialInterpolatedAssignments.cs", "tools/TrialInterpolatedAssignments.csproj",
+        "tools/RunGmshV2Regression.ps1", "tools/RunGmshV2FullRegression.ps1",
+        "tools/RunGmshV2Examples.ps1",
+        "tools/TestGmshUiPreview.ps1",
+        "tools/CaptureGmshV2Help.ps1",
+        "tools/TestV2ModelSwitch.cs", "tools/TestV2ModelSwitch.csproj",
+        "tools/RunV2ModelSwitch.ps1", "tools/RunV240PreviewUndo.ps1",
+        "tools/RunV2ProtectedEdgeTrial.ps1",
+        "tools/VerifyV241PublicRegression.py",
+        "tools/VerifyV242PublicRegression.py",
+        "tools/ProbeGmshSimpleSmoothing.py", "tools/InstallLocalV2Candidate.ps1",
+        "tools/TestV2GenerationAreaDialog.ps1", "tools/TestV2CloseUnappliedSap.ps1",
+        "tools/UpdateV242Help.py",
+        "tools/UpdateV243Help.py",
+        "tools/UpdateV244Help.py", "tools/RunV2GroupReproducer.ps1",
+        "tools/InspectSapSharedSeamNames.py", "tools/TestV2TopologyAwareJointIndex.ps1",
+        "tools/TestV2SapApiErrorMessage.ps1", "tools/TestV2OptionalTransferWarning.ps1",
+        "tools/TestGmshSizeQuality.ps1", "tools/TestV2QualityLayout.ps1",
+        "tools/TestV1ToV2UpdateFeed.ps1", "tools/TestSapUnitContext.ps1",
+        "docs/GMSH_V2_2_0_46_RELEASE.md", "tools/UpdateV246Help.py",
+    })
+    target = ARTIFACTS / f"Sap2000QuadMesher-{version}-source.zip"
+    if target.exists():
+        raise FileExistsError(target)
+    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+        for name in sorted(names):
+            path = ROOT / name
+            if not path.is_file():
+                raise FileNotFoundError(path)
+            archive.write(path, name)
+        archive.write(binding, "third_party/gmsh.py")
+        for license_name in ("GMSH-LICENSE.txt", "PYTHON-LICENSE.txt"):
+            archive.write(stage / "licenses" / license_name, "licenses/" + license_name)
+    (ARTIFACTS / (target.name + ".sha256")).write_text(f"{sha(target)}  {target.name}\n", encoding="ascii")
+    print(f"V2_SOURCE={target}")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        raise SystemExit("Usage: python packaging/build-source-v2.py VERSION")
+    main(sys.argv[1])
