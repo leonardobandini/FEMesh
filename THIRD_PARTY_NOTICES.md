@@ -2,7 +2,7 @@
 
 ## SAP2000
 
-La versione V2 del plugin usa l'API di SAP2000/CSiBridge tramite `CSiAPIv1.dll`. Le versioni storiche usavano `SAP2000v1.dll`.
+La versione distribuita del plugin usa l'API di SAP2000/CSiBridge tramite `CSiAPIv1.dll`.
 
 SAP2000, CSiBridge e le loro DLL API sono software proprietari di Computers and Structures, Inc. (CSI). Non fanno parte del pacchetto FEMesh. Gli utenti devono ottenere i programmi e i componenti API direttamente da CSI nel rispetto della licenza applicabile.
 

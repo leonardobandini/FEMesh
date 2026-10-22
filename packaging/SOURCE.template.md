@@ -7,10 +7,8 @@ its original license and narrowly scoped exception. `LICENSE`, `GPL-3.0.txt`,
 `LICENSE-APPLICATION.md` and `THIRD_PARTY_NOTICES.md` contain the applicable
 terms. No CSI API binary is included; CSI is licensed separately.
 
-Version v{VERSION} is a user release, following **v1.0.79,
-the first downloadable user version**. Builds before v1.0.79 were development
-or test builds. Equivalent public access to this release's source is provided
-beside its binary ZIP on the release page:
+Version v{VERSION} is the currently distributed FEMesh release. Its exact
+corresponding source is provided beside the installer ZIP on the release page:
 
 https://github.com/leonardobandini/FEMesh/releases/tag/v{VERSION}
 
@@ -34,7 +32,7 @@ later replaces this release page:
 - Plugin/backend source: https://raw.githubusercontent.com/leonardobandini/sap2000-quad-mesher-updates/source-archive/v{VERSION}/Sap2000QuadMesher-{VERSION}-source.zip
 - Original Gmsh 4.15.2 source: https://raw.githubusercontent.com/leonardobandini/sap2000-quad-mesher-updates/source-archive/gmsh-4.15.2-source.tgz
 
-Development and test builds before v1.0.79 were not offered as official versions
-for users; if someone obtained one, its existing rights remain in force. If you
-redistribute this binary package, you must comply with the GPL's corresponding-
-source requirements yourself.
+Earlier development and debug builds are not part of this current-release
+notice. Rights granted to recipients of earlier copies are unaffected. If you
+redistribute this binary package, you must satisfy the applicable GPL
+corresponding-source requirements yourself.

@@ -19,8 +19,8 @@ distributed Python/Gmsh backend also contains OpenSSL 3 (Apache-2.0), so the
 binary combination is distributed using the GPLv3 option permitted by the
 "or later" clauses. This does not alter Gmsh's original license or exception.
 
-Builds before **1.0.79** were for development and testing, even when a test
-ZIP was briefly available online. Those through 1.0.77 used MIT for original
-code; the 1.0.78 GPL package was a test build. **1.0.79 is the first beta
-intended for users.** If anyone obtained an earlier copy, its granted rights
-remain in force; a later release does not revoke them.
+The binary and corresponding source currently distributed are identified by
+their release tag and SHA-256 checksums on the same FEMesh release page.
+Earlier development and debug builds are not described by this current-release
+notice. Any rights already granted to recipients of older copies remain in
+force; publishing a new release does not withdraw those rights.

@@ -62,6 +62,12 @@ try {
         throw 'The packaged corresponding-source address does not match this release.'
     }
     Copy-Item -LiteralPath (Join-Path $pluginBuild 'docs') -Destination $stage -Recurse
+    foreach ($language in @('it','en')) {
+        $historicalHelp = Join-Path $stage "docs\help-gmsh-v2\legacy-$language.html"
+        if (Test-Path -LiteralPath $historicalHelp -PathType Leaf) {
+            Remove-Item -LiteralPath $historicalHelp
+        }
+    }
     Copy-Item -LiteralPath (Join-Path $pluginBuild 'img') -Destination $stage -Recurse
     Copy-Item -LiteralPath $backend -Destination (Join-Path $stage 'mesher') -Recurse
     $licenses = Join-Path $stage 'licenses'

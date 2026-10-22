@@ -1,5 +1,0 @@
-# SAP2000 Quad Mesher V2 2.0.53 — allineamento Opzioni di trasferimento
-
-La seconda opzione della scheda **Opzioni di trasferimento** mostra il checkbox del backup affiancato alla prima riga della spiegazione, allineata al testo della prima opzione. La spiegazione non è più coperta dalla superficie del controllo checkbox; cliccare sulla spiegazione alterna la spunta. L'interfaccia è verificata in italiano e inglese. Geometria, generazione della mesh e trasferimenti SAP2000 restano quelli della 2.0.52.
-
-L'utente ha visionato e approvato la finestra corretta sulla build locale. La regressione SAP2000 27.1 sul pacchetto completo è **36/36 PASS**: due sessioni SAP persistenti in parallelo, con 24 casi in sequenza nella prima e 12 nella seconda. Ogni worker riapre i file successivi nello **stesso** processo SAP e salva solo i risultati delle copie di prova. Il limite di licenza non consentiva tre o quattro sessioni contemporanee. I tentativi con istanze aggiuntive hanno avuto errori di avvio SAP e non sono conteggiati come verifiche della mesh. Il riepilogo completo è in `%TEMP%\opencode\v253-full36-two-persistent-20261020\summary.csv`.

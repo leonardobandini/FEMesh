@@ -1,9 +1,0 @@
-# FEMesh 2.0.59 — SAP2000/CSiBridge
-
-The bilingual offline help now displays six freshly captured screenshots of the current FEMesh window (Gmsh, Additional options and Transfer options in Italian and English). The language selector remains visible. Older case-specific UI screenshots are no longer presented as current controls; SDB example diagrams, settings JSON and historically measured outcomes remain attributed to their original trials. Current operational text uses SAP2000/CSiBridge. The Classic archive is explicitly marked as historical.
-
-The installer registers Tools > FEMesh in every initialized SAP2000/CSiBridge 27-or-later installation it finds with CSiAPIv1.dll. Installation profiles for 28, 29 and 31 were verified on disposable copies of host settings; the final version 28 applications have not yet been tested on this PC. The COM identity and plugin DLL name remain compatible with previous installations.
-
-The binary ZIP is offered under both `Sap2000QuadMesher-2.0.59.zip` and `FEMesher-2.0.59.zip`, with identical SHA-256 checksums. The older name remains necessary for update clients already installed. A corresponding source ZIP and upstream Gmsh sources accompany the installer.
-
-Validation: **SAP2000 27.1: 36/36 PASS** in two persistent, parallel SAP2000 processes (18 model copies per process), with Preview Undo PASS in one Standard and two FAST cases. **CSiBridge 27.1: 36/36 PASS** in one persistent process, opening copied SDBs and saving and reopening each resulting BDB; FAST Preview Undo passed in two cases. The additional name check verifies that FEMesh does not introduce temporary `QT…` labels in the applied BDB; nTEST029 retains 258 labels already present in its input, which were not created by this release. The standalone installer under both ZIP filenames, bilingual help and 27/28/29/31 menu-profile migration checks passed. Results are local to the tested versions and copied engineering models.

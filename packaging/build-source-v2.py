@@ -47,10 +47,12 @@ def main(version):
                   "install_plugin.cmd", "uninstall_plugin.cmd"}
     names = {name for name in tracked if (name.startswith(("packaging/", "docs/help-gmsh-v2/")) or
              name.startswith("SapQuadTransitionPlugin/") and name.split("/", 1)[1] in shipped_v2)
-             and name.endswith(allowed) and "/bin/" not in name and "/obj/" not in name
-             and (ROOT / name).is_file()}
+              and name.endswith(allowed) and "/bin/" not in name and "/obj/" not in name
+              and not name.startswith("docs/help-gmsh-v2/legacy-")
+              and (ROOT / name).is_file()}
     names.update(str(path.relative_to(ROOT)).replace("\\", "/")
-                  for path in (ROOT / "docs" / "help-gmsh-v2").rglob("*") if path.is_file())
+                  for path in (ROOT / "docs" / "help-gmsh-v2").rglob("*")
+                  if path.is_file() and not path.name.startswith('legacy-'))
     names.update(str(path.relative_to(ROOT)).replace("\\", "/")
                   for path in (ROOT / "examples" / "bug17" / "geometry").glob("*")
                   if path.is_file() and path.suffix in (".csv", ".json", ".md"))
@@ -74,33 +76,10 @@ def main(version):
         "updates/manifest-v2.json", "updates/manifest.json",
         "tools/TestUpdateNotice.ps1",
         "run_test01_fast.cs", "RunTest01Fast.csproj", "FastTest/RunTest01Fast.csproj",
-        "docs/GMSH_V2_TRANSFER_MATRIX_2_0_16.md", "docs/GMSH_V2_2_0_17_RELEASE.md",
-        "docs/GMSH_V2_2_0_21_RELEASE.md", "docs/GMSH_V2_2_0_22_RELEASE.md",
-        "docs/GMSH_V2_2_0_23_RELEASE.md", "docs/GMSH_V2_2_0_26_RELEASE.md",
-        "docs/GMSH_V2_2_0_28_RELEASE.md", "docs/GMSH_V2_2_0_29_RELEASE.md",
-        "docs/GMSH_V2_2_0_30_RELEASE.md", "docs/GMSH_V2_2_0_32_RELEASE.md",
-        "docs/GMSH_V2_2_0_36_RELEASE.md", "docs/GMSH_V2_2_0_37_RELEASE.md",
-        "docs/GMSH_V2_2_0_38_RELEASE.md", "docs/GMSH_V2_2_0_39_RELEASE.md",
-        "docs/GMSH_V2_2_0_40_LOCAL.md", "docs/GMSH_V2_2_0_41_RELEASE.md",
-        "docs/GMSH_V2_2_0_42_RELEASE.md",
-        "docs/GMSH_V2_2_0_43_RELEASE.md",
-        "docs/GMSH_V2_2_0_44_RELEASE.md",
-        "docs/GMSH_V2_2_0_45_RELEASE.md",
-        "docs/GMSH_V2_2_0_50_RELEASE.md",
-        "docs/GMSH_V2_2_0_52_RELEASE.md",
-        "docs/GMSH_V2_2_0_53_RELEASE.md",
-        "docs/FEMESH_2_0_54_RELEASE.md", "docs/FEMESH_MULTI_HOST_2_0_54_LOCAL.md",
-        "docs/FEMESH_2_0_59_RELEASE.md", "docs/FEMESH_2_0_61_RELEASE.md",
         "packaging/TestFEMeshMenus.ps1", "tools/VerifyFEMeshBridgeResults.py",
         "tools/TestFEMeshHosts.ps1",
         "tools/UpdateFEMeshGuideBrand.py", "tools/UpdateFEMeshHelpV259.py",
         "tools/UpdateFEMeshHelpV260.py", "tools/UpdateFEMeshHelpV261.py",
-        "reports/CONCRETE_BARRIER_2026-10-19.md",
-        "docs/GMSH_V2_NTEST026_TRIANGLE_DIAGNOSIS.md",
-        "docs/GMSH_V2_SIZE_QUALITY_POLICY.md",
-        "docs/GMSH_V2_ASSIGNMENT_VERIFICATION_BACKLOG.md", "docs/GMSH_V2_ENGINEERING_LOG.md",
-        "docs/GMSH_V2_TRANSFER_MATRIX_2_0_18.md", "docs/SAP2000_27_2_BETA_COMPATIBILITY_REPORT.md",
-        "docs/SAP2000_UNIT_CONTEXT_POLICY.md",
         "tools/RunXApiAtomic.ps1", "tools/TrialParentChild.cs", "tools/TrialParentChild.csproj",
         "tools/TrialSnapshotUndo.cs", "tools/TrialSnapshotUndo.csproj",
         "tools/ProbeDesignWarning.cs", "tools/ProbeDesignWarning.csproj",
@@ -124,7 +103,7 @@ def main(version):
         "tools/TestV2SapApiErrorMessage.ps1", "tools/TestV2OptionalTransferWarning.ps1",
         "tools/TestGmshSizeQuality.ps1", "tools/TestV2QualityLayout.ps1",
         "tools/TestV1ToV2UpdateFeed.ps1", "tools/TestSapUnitContext.ps1",
-        "docs/GMSH_V2_2_0_46_RELEASE.md", "tools/UpdateV246Help.py",
+         "tools/UpdateV246Help.py",
     })
     target = ARTIFACTS / f"Sap2000QuadMesher-{version}-source.zip"
     if target.exists():
