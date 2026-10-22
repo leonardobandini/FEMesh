@@ -1,0 +1,56 @@
+name: Keep latest FEMesh installer link current
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published FEMesh release tag
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  latest-installer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify and attach the stable installer asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          test "$TAG" = "v$version"
+          archive="FEMesher-$version.zip"
+          checksum="$archive.sha256"
+          directory="$RUNNER_TEMP/femesh-latest"
+          mkdir -p "$directory"
+
+          # The published event can arrive while GitHub CLI is still uploading
+          # release assets. Wait until both versioned files become available.
+          for attempt in $(seq 1 30); do
+            if gh release download "$TAG" -p "$archive" -p "$checksum" -D "$directory" --clobber; then
+              break
+            fi
+            sleep 10
+          done
+          test -s "$directory/$archive"
+          test -s "$directory/$checksum"
+          (cd "$directory" && sha256sum -c "$checksum")
+          expected="sha256:$(sha256sum "$directory/$archive" | cut -d ' ' -f 1)"
+
+          current="$(gh api "repos/$GH_REPO/releases/tags/$TAG" \
+            --jq '.assets[] | select(.name == "FEMesher-latest.zip") | .digest')"
+          if [ -n "$current" ]; then
+            test "$current" = "$expected"
+          else
+            cp "$directory/$archive" "$directory/FEMesher-latest.zip"
+            gh release upload "$TAG" "$directory/FEMesher-latest.zip"
+          fi
+          actual="$(gh api "repos/$GH_REPO/releases/tags/$TAG" \
+            --jq '.assets[] | select(.name == "FEMesher-latest.zip") | .digest')"
+          test "$actual" = "$expected"
