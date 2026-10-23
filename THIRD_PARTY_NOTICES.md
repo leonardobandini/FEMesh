@@ -8,7 +8,7 @@ SAP2000, CSiBridge e le loro DLL API sono software proprietari di Computers and 
 
 Sito: <https://www.csiamerica.com/products/sap2000>
 
-## Componenti del backend binario 2.0.64
+## Componenti del backend binario 2.0.65
 
 Il codice originale FEMesh è GPL-2.0-or-later. Per il backend binario
 combinato con OpenSSL 3 (Apache-2.0) viene esercitata l'opzione GPLv3
@@ -25,7 +25,7 @@ scelta non modifica la licenza di alcun componente di terzi.
 
 ## Prerequisito Microsoft esterno
 
-FEMesh 2.0.64 **non include** `VCRUNTIME140.dll`, `VCRUNTIME140_1.dll` né
+FEMesh 2.0.65 **non include** `VCRUNTIME140.dll`, `VCRUNTIME140_1.dll` né
 altre DLL separate del runtime Visual C++ Microsoft. Prima dell'installazione
 occorre installare separatamente il
 [Microsoft Visual C++ Redistributable x64 ufficiale](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)

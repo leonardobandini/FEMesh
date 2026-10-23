@@ -71,6 +71,7 @@ def main(version):
         "Directory.Build.props", "requirements.txt",
         "LICENSE", "GPL-3.0.txt", "LICENSE-APPLICATION.md", "SAP2000-LINKING-EXCEPTION.md",
         "THIRD_PARTY_NOTICES.md", "packaging/requirements-build.txt",
+        "tools/TestUpdateNotice.ps1",
         "run_test01_fast.cs", "RunTest01Fast.csproj", "FastTest/RunTest01Fast.csproj",
         "packaging/TestFEMeshMenus.ps1", "tools/VerifyFEMeshBridgeResults.py",
         "tools/TestFEMeshHosts.ps1",

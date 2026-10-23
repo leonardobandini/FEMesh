@@ -124,7 +124,8 @@ try {
         elseif ($version -eq '2.0.61') { '2.0.59' }
         elseif ($version -eq '2.0.62') { '2.0.61' }
         elseif ($version -eq '2.0.63') { '2.0.62' }
-        elseif ($version -eq '2.0.64') { '2.0.63' } else { '2.0.13' }
+        elseif ($version -eq '2.0.64') { '2.0.63' }
+        elseif ($version -eq '2.0.65') { '2.0.64' } else { '2.0.13' }
     $oldV2 = Join-Path $artifacts "Sap2000QuadMesher-$previous"
     if (Test-Path -LiteralPath (Join-Path $oldV2 'SQMPluginInstaller.exe') -PathType Leaf) {
         $trialV2 = Join-Path $build 'v2-upgrade-trial'

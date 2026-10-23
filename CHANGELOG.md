@@ -1,6 +1,12 @@
 # FEMesh — versione distribuita
 
-## 2.0.64 — 23 ottobre 2026 (candidata locale)
+## 2.0.65 — 23 ottobre 2026
+
+- Ripristinato il controllo aggiornamenti della V2, con la medesima UI e gli stessi messaggi; consulta esclusivamente l'ultima release stabile pubblica di FEMesh.
+- Il download avviene soltanto su scelta esplicita dell'utente tramite browser; nessuna installazione automatica.
+- Lo ZIP dell'ultima release usa il nome stabile `FEMesh-latest.zip`.
+
+## 2.0.64 — 23 ottobre 2026
 
 - `SOURCE.md` identifica esclusivamente binario, sorgenti e checksum della medesima release FEMesh.
 - Disattivato il controllo aggiornamenti integrato e rimosso il relativo collegamento al feed; le future versioni saranno annunciate tramite le release FEMesh.

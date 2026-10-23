@@ -9,8 +9,10 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Authentication;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -35,8 +37,10 @@ namespace SapQuadTransitionPlugin
         private const int AreaObjectType = 5;
         private const int SolidObjectType = 6;
         private const int LinkObjectType = 7;
-        private const string PluginVersion = "2.0.64";
+        private const string PluginVersion = "2.0.65";
         private const string WindowTitle = "FEMesh " + PluginVersion;
+        private const string UpdateManifestUrl = "https://api.github.com/repos/leonardobandini/FEMesh/releases/latest";
+        private const string LatestDownloadUrl = "https://github.com/leonardobandini/FEMesh/releases/latest/download/FEMesh-latest.zip";
         private static readonly Color UiNavy = Color.FromArgb(15, 23, 42);
         private static readonly Color UiBody = Color.FromArgb(30, 41, 59);
         private static readonly Color UiMuted = Color.FromArgb(71, 85, 105);
@@ -7173,6 +7177,9 @@ namespace SapQuadTransitionPlugin
             private readonly Button undo = new Button();
             private readonly ComboBox language = new ComboBox();
             private readonly LinkLabel verifiedExamples = new LinkLabel();
+            private readonly LinkLabel updateNotice = new LinkLabel();
+            private readonly System.Windows.Forms.Timer updateBlinkTimer = new System.Windows.Forms.Timer();
+            private Font updateNoticeBoldFont;
             private readonly Label headerTitle;
             private readonly Label headerSubtitle;
             private readonly Panel selectionSummary = new Panel();
@@ -7307,6 +7314,12 @@ namespace SapQuadTransitionPlugin
                 cancellationController = null;
                 if (active != null) active.Stop();
             }
+            private bool checkingUpdates;
+            private bool updateCheckSucceeded;
+            private bool updateBlinkOn;
+            private string availableVersion;
+            private string availableReleaseUrl;
+            private string availableDownloadUrl;
             private MeshQualityReport qualityReport;
             private Action undoAction;
             private Action applyAction;
@@ -7806,6 +7819,7 @@ namespace SapQuadTransitionPlugin
                 { e.Cancel = true; OpenHelp(this); };
                 ApplyPluginIcon(this);
                 Font = new Font("Segoe UI", 9); BackColor = Color.White; ForeColor = UiBody; AutoScaleMode = AutoScaleMode.Dpi;
+                updateNoticeBoldFont = new Font(Font, FontStyle.Bold);
                 Panel header = CreateDialogHeader("FEMesh", "Conforming quadrilateral mesh generation", ClientSize.Width);
                 headerTitle = (Label)header.Controls[0]; headerSubtitle = (Label)header.Controls[1]; Controls.Add(header);
                 headerTitle.Width = 390; headerSubtitle.Width = 410;
@@ -8116,6 +8130,34 @@ namespace SapQuadTransitionPlugin
                 };
                 Controls.Add(generate); Controls.Add(details); Controls.Add(undo);
                 AddDialogFooter(this, 704, ClientSize.Width);
+                // Keep the update link centered between the GPL link and version label.
+                updateNotice.Left = 180; updateNotice.Width = 205;
+                updateNotice.Top = 715; updateNotice.Height = 36;
+                updateNotice.TextAlign = ContentAlignment.MiddleCenter; updateNotice.Tag = "update-notice";
+                updateNotice.LinkColor = UiBlue; updateNotice.ActiveLinkColor = UiNavy;
+                updateNotice.VisitedLinkColor = UiBlue; updateNotice.Cursor = Cursors.Default;
+                updateBlinkTimer.Interval = 650;
+                updateBlinkTimer.Tick += delegate
+                {
+                    if (string.IsNullOrEmpty(availableDownloadUrl)) { updateBlinkTimer.Stop(); return; }
+                    updateBlinkOn = !updateBlinkOn;
+                    updateNotice.BackColor = updateBlinkOn ? Color.FromArgb(254, 243, 199) : Color.White;
+                    updateNotice.LinkColor = updateBlinkOn ? Color.FromArgb(185, 28, 28) : UiBlue;
+                    updateNotice.Invalidate();
+                };
+                updateNotice.LinkClicked += async delegate
+                {
+                    if (!string.IsNullOrEmpty(availableDownloadUrl))
+                    {
+                        MessageBox.Show(this, L("The ZIP download will open in your browser. Extract it, close SAP2000 and CSiBridge, then run install_plugin.cmd from the extracted folder. Reopen the host application to use the new version.",
+                            "Il download dello ZIP si aprira nel browser. Estrailo, chiudi SAP2000 e CSiBridge, quindi esegui install_plugin.cmd dalla cartella estratta. Riapri l'applicazione per usare la nuova versione."),
+                            WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        Process.Start(new ProcessStartInfo(availableDownloadUrl) { UseShellExecute = true });
+                    }
+                    else await CheckForUpdatesAsync();
+                };
+                Controls.Add(updateNotice);
+                Shown += async delegate { await CheckForUpdatesAsync(); };
                 language.SelectedIndexChanged += delegate { useItalian = language.SelectedIndex == 1; ApplyLanguage(); };
                 ConfigureSelectionSummary();
                 // Atomic runs must use only their explicit test settings, not the
@@ -8374,6 +8416,94 @@ namespace SapQuadTransitionPlugin
             {
                 createdElements.Text = L("Created elements: ", "Elementi creati: ") + generatedElementCount;
             }
+            private static bool TryGetNewRelease(string json, out string version, out string releaseUrl, out string downloadUrl)
+            {
+                version = releaseUrl = downloadUrl = null;
+                var release = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(json);
+                object tag, url, assets, flag;
+                if (release == null || !release.TryGetValue("tag_name", out tag) ||
+                    !release.TryGetValue("html_url", out url) ||
+                    !release.TryGetValue("assets", out assets) ||
+                    (release.TryGetValue("draft", out flag) && Convert.ToBoolean(flag)) ||
+                    (release.TryGetValue("prerelease", out flag) && Convert.ToBoolean(flag))) return false;
+                string tagName = Convert.ToString(tag, CultureInfo.InvariantCulture);
+                if (string.IsNullOrEmpty(tagName) || !Regex.IsMatch(tagName, @"^v\d+\.\d+\.\d+$")) return false;
+                Version candidate, current;
+                if (!Version.TryParse(tagName.Substring(1), out candidate) ||
+                    !Version.TryParse(PluginVersion, out current) || candidate.CompareTo(current) <= 0) return false;
+                Uri uri;
+                if (!Uri.TryCreate(Convert.ToString(url, CultureInfo.InvariantCulture), UriKind.Absolute, out uri) ||
+                    uri.Scheme != Uri.UriSchemeHttps || uri.Host != "github.com" ||
+                    uri.AbsolutePath != "/leonardobandini/FEMesh/releases/tag/" + tagName ||
+                    assets is string || !(assets is System.Collections.IEnumerable)) return false;
+                bool hasInstaller = false;
+                foreach (object item in (System.Collections.IEnumerable)assets)
+                {
+                    var asset = item as Dictionary<string, object>;
+                    object name, download;
+                    if (asset == null || !asset.TryGetValue("name", out name) ||
+                        !asset.TryGetValue("browser_download_url", out download) ||
+                        Convert.ToString(name, CultureInfo.InvariantCulture) != "FEMesh-latest.zip") continue;
+                    Uri downloadUri;
+                    if (Uri.TryCreate(Convert.ToString(download, CultureInfo.InvariantCulture), UriKind.Absolute, out downloadUri) &&
+                        downloadUri.Scheme == Uri.UriSchemeHttps && downloadUri.Host == "github.com" &&
+                        downloadUri.AbsolutePath == "/leonardobandini/FEMesh/releases/download/" + tagName + "/FEMesh-latest.zip")
+                        hasInstaller = true;
+                }
+                if (!hasInstaller) return false;
+                version = candidate.ToString();
+                releaseUrl = uri.AbsoluteUri;
+                downloadUrl = LatestDownloadUrl;
+                return true;
+            }
+            private async Task CheckForUpdatesAsync()
+            {
+                if (checkingUpdates || IsDisposed) return;
+                checkingUpdates = true;
+                updateNotice.Text = L("Checking for updates...", "Ricerca aggiornamenti...");
+                try
+                {
+                    using (var handler = new HttpClientHandler { SslProtocols = SslProtocols.Tls12 })
+                    using (var client = new HttpClient(handler))
+                    {
+                        client.Timeout = TimeSpan.FromSeconds(3);
+                        client.DefaultRequestHeaders.UserAgent.ParseAdd("SapQuadMesher/" + PluginVersion);
+                        client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+                        string json = Environment.GetEnvironmentVariable("SAP_QUAD_TEST_UPDATE_MANIFEST_JSON");
+                        if (string.IsNullOrEmpty(json)) json = await client.GetStringAsync(UpdateManifestUrl);
+                        string version, releaseUrl, downloadUrl;
+                        updateCheckSucceeded = true;
+                        if (TryGetNewRelease(json, out version, out releaseUrl, out downloadUrl))
+                        {
+                            availableVersion = version;
+                            availableReleaseUrl = releaseUrl;
+                            availableDownloadUrl = downloadUrl;
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    // An unavailable network must not prevent the options window from opening.
+                    updateCheckSucceeded = false;
+                }
+                finally
+                {
+                    checkingUpdates = false;
+                    if (!IsDisposed) UpdateNoticeText();
+                }
+            }
+            private void UpdateNoticeText()
+            {
+                bool hasUpdate = !string.IsNullOrEmpty(availableDownloadUrl);
+                if (hasUpdate && !updateBlinkTimer.Enabled) updateBlinkTimer.Start();
+                if (!hasUpdate && updateBlinkTimer.Enabled) updateBlinkTimer.Stop();
+                if (!hasUpdate) { updateNotice.BackColor = Color.White; updateNotice.LinkColor = UiBlue; }
+                updateNotice.Text = checkingUpdates ? L("Checking for updates...", "Ricerca aggiornamenti...") :
+                    hasUpdate ? L("Update available\nDownload ", "Aggiornamento disponibile\nScarica ") + availableVersion :
+                    updateCheckSucceeded ? L("Version " + PluginVersion + " is up to date", "La versione " + PluginVersion + " e aggiornata") :
+                    L("Check for updates", "Cerca aggiornamenti");
+                updateNotice.Font = hasUpdate ? updateNoticeBoldFont : Font;
+            }
             private static string DefaultLength(double meters, string lengthUnit)
             {
                 return (meters / MetersPerUnit(lengthUnit)).ToString("0.########", CultureInfo.InvariantCulture);
@@ -8529,7 +8659,7 @@ namespace SapQuadTransitionPlugin
                 {
                     StopCancellationController();
                     if (viewportWasDisabled) PauseViewportInteraction();
-                    elapsedTimer.Dispose(); measurementToolTip.Dispose();
+                    elapsedTimer.Dispose(); updateBlinkTimer.Dispose(); updateNoticeBoldFont.Dispose(); measurementToolTip.Dispose();
                 }
                 base.Dispose(disposing);
             }
@@ -8597,6 +8727,7 @@ namespace SapQuadTransitionPlugin
                 if (!working && qualityReport == null && !RetryRequested) status.Text = L("Ready.", "Pronto.");
                 if (!hasSelectedAreas) status.Text = L("Select at least one area in " + HostProductName() + "; this window updates automatically.",
                     "Selezionare almeno un'area in " + HostProductName() + ": questa finestra si aggiorna automaticamente.");
+                UpdateNoticeText();
                 foreach (Control control in Controls)
                 {
                     if (control.Tag as string == "version") control.Text = L("Version ", "Versione ") + PluginVersion;
