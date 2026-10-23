@@ -1,38 +1,35 @@
-# Corresponding source for FEMesh {VERSION}
+# Corresponding source for FEMesh v{VERSION}
 
-The original FEMesh code is GPL-2.0-or-later and Gmsh 4.15.2 is GPL-2.0-or-later
-under its own copyright holders. For the combined binary containing OpenSSL 3
-(Apache-2.0), this distribution elects **GPLv3**, not GPLv2-only. Gmsh keeps
-its original license and narrowly scoped exception. `LICENSE`, `GPL-3.0.txt`,
-`LICENSE-APPLICATION.md` and `THIRD_PARTY_NOTICES.md` contain the applicable
-terms. No CSI API binary is included; CSI is licensed separately.
-
-Version v{VERSION} is the currently distributed FEMesh release. Its exact
-corresponding source is provided beside the installer ZIP on the release page:
+The authoritative binary and corresponding-source files for this version are
+the assets of the **same** FEMesh release:
 
 https://github.com/leonardobandini/FEMesh/releases/tag/v{VERSION}
 
-Download both `Sap2000QuadMesher-{VERSION}-source.zip` (plugin, installer,
-Python backend, exact Gmsh Python binding, build scripts and instructions)
-and `gmsh-4.15.2-source.tgz` (unmodified upstream Gmsh source). Each has an
-accompanying `.sha256` checksum file. The SHA-256 values of the original
-Windows Gmsh wheel and the exact DLL bundled here are recorded in
-`THIRD_PARTY_NOTICES.md` and the source archive's build instructions.
+| Asset | Download |
+| --- | --- |
+| `FEMesh-{VERSION}.zip` (installer) | https://github.com/leonardobandini/FEMesh/releases/download/v{VERSION}/FEMesh-{VERSION}.zip |
+| `FEMesh-{VERSION}.zip.sha256` | https://github.com/leonardobandini/FEMesh/releases/download/v{VERSION}/FEMesh-{VERSION}.zip.sha256 |
+| `Sap2000QuadMesher-{VERSION}-source.zip` (C# plug-in, Python backend, exact Gmsh Python binding, build and installation scripts) | https://github.com/leonardobandini/FEMesh/releases/download/v{VERSION}/Sap2000QuadMesher-{VERSION}-source.zip |
+| `Sap2000QuadMesher-{VERSION}-source.zip.sha256` | https://github.com/leonardobandini/FEMesh/releases/download/v{VERSION}/Sap2000QuadMesher-{VERSION}-source.zip.sha256 |
+| `gmsh-4.15.2-source.tgz` (unmodified upstream Gmsh source) | https://github.com/leonardobandini/FEMesh/releases/download/v{VERSION}/gmsh-4.15.2-source.tgz |
+| `gmsh-4.15.2-source.tgz.sha256` | https://github.com/leonardobandini/FEMesh/releases/download/v{VERSION}/gmsh-4.15.2-source.tgz.sha256 |
 
-The independently maintained CPython 3.12.7 runtime, OpenSSL 3.0.15,
-libffi, PyInstaller bootloader and Microsoft redistributable components retain
-their own terms; see `THIRD_PARTY_NOTICES.md` and `licenses/PYTHON-LICENSE.txt`.
-The matching CPython sources are available from
-https://www.python.org/downloads/release/python-3127/ ; OpenSSL 3.0.15 sources
-from https://github.com/openssl/openssl/releases/tag/openssl-3.0.15 .
+The original FEMesh code is GPL-2.0-or-later. Gmsh 4.15.2 is
+GPL-2.0-or-later under its own copyright holders, with a limited exception.
+For the combined Python/Gmsh backend containing OpenSSL 3 (Apache-2.0), this
+distribution elects the GPLv3 option allowed by the "or later" clauses. This
+does not change Gmsh's original license or exception. Third-party components
+retain their respective licenses; see `LICENSE`, `GPL-3.0.txt`,
+`LICENSE-APPLICATION.md`, `THIRD_PARTY_NOTICES.md` and `licenses/`.
 
-The same sources are also kept at stable public addresses if a newer version
-later replaces this release page:
+CPython 3.12.7, OpenSSL 3.0.15, libffi and the PyInstaller bootloader retain
+their own terms; details and upstream source locations are in
+`THIRD_PARTY_NOTICES.md` and `licenses/PYTHON-LICENSE.txt`. Microsoft Visual
+C++ runtime DLLs are **not included**. Before installing FEMesh, install the
+[official Microsoft Visual C++ Redistributable x64](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)
+version **14.42.34226.3 or later compatible** separately. The CSI API must be
+obtained independently from an authorized SAP2000 or CSiBridge installation;
+no CSI binary is included.
 
-- Plugin/backend source: https://raw.githubusercontent.com/leonardobandini/sap2000-quad-mesher-updates/source-archive/v{VERSION}/Sap2000QuadMesher-{VERSION}-source.zip
-- Original Gmsh 4.15.2 source: https://raw.githubusercontent.com/leonardobandini/sap2000-quad-mesher-updates/source-archive/gmsh-4.15.2-source.tgz
-
-Earlier development and debug builds are not part of this current-release
-notice. Rights granted to recipients of earlier copies are unaffected. If you
-redistribute this binary package, you must satisfy the applicable GPL
+If you redistribute the binary, you must satisfy the applicable GPL
 corresponding-source requirements yourself.

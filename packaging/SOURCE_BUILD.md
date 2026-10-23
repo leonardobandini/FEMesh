@@ -21,8 +21,11 @@ The upstream source tarball SHA-256 is
 To build from the extracted archive on Windows x64, install .NET SDK and .NET
 Framework 4.8, Python **3.12.7**, and either SAP2000 or CSiBridge 27+ with
 `CSiAPIv1.dll`. The API DLL is supplied by the independently licensed host;
-**it is not distributed with FEMesh**. From the top directory of this source
-archive, in PowerShell:
+**it is not distributed with FEMesh**. Install the
+[official Microsoft Visual C++ Redistributable x64](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist),
+version **14.42.34226.3 or later compatible**, separately before running the
+backend or installer: Visual C++ runtime DLLs are not included in FEMesh. From
+the top directory of this source archive, in PowerShell:
 
 ```powershell
 python -m pip install -r packaging\requirements-build.txt

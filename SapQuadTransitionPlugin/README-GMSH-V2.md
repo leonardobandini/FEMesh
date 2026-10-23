@@ -1,4 +1,4 @@
-# FEMesh 2.0.63 — SAP2000 e CSiBridge
+# FEMesh 2.0.64 — SAP2000 e CSiBridge
 
 FEMesh suddivide aree selezionate in elementi shell prevalentemente quadrangolari con Gmsh. La voce del menu è **Tools → FEMesh**. Il nome tecnico della DLL e l'identità COM restano compatibili con le installazioni esistenti.
 
@@ -12,8 +12,7 @@ La guida offline dettagliata è in `docs/help-gmsh-v2/index-it.html` (italiano) 
 
 ## Scaricare e compilare
 
-- [ZIP d'installazione FEMesh corrente](https://github.com/leonardobandini/FEMesh/releases/latest/download/FEMesh-latest.zip).
-- `SOURCE.md`, incluso nello ZIP, rimanda ai sorgenti FEMesh e Gmsh corrispondenti alla versione distribuita. Le istruzioni di build sono nell'archivio sorgenti, `packaging/SOURCE_BUILD.md`.
-- Il codice originale FEMesh e Gmsh sono GPL-2.0-or-later. Il binario combinato con OpenSSL 3 elegge GPLv3; leggi `LICENSE-APPLICATION.md`, `GPL-3.0.txt`, `THIRD_PARTY_NOTICES.md` e `licenses/`. Non è inclusa alcuna DLL CSI.
-
-Le versioni precedenti erano usate per sviluppo e debug. La presente guida riguarda solo la distribuzione corrente.
+- Prima di installare FEMesh, installa il [Microsoft Visual C++ Redistributable x64 ufficiale](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist), versione **14.42.34226.3 o successiva compatibile**. Le DLL runtime Visual C++ Microsoft non sono incluse nello ZIP.
+- [Pagina delle release FEMesh](https://github.com/leonardobandini/FEMesh/releases): le nuove versioni sono annunciate qui; il controllo aggiornamenti nel plug-in è disattivato.
+- `SOURCE.md`, incluso nello ZIP, identifica gli asset FEMesh/backend e Gmsh della medesima release e i relativi checksum. Le istruzioni di build sono nell'archivio sorgenti, `packaging/SOURCE_BUILD.md`.
+- Il codice originale FEMesh è GPL-2.0-or-later; Gmsh 4.15.2 è GPL-2.0-or-later dei suoi titolari. Il backend binario combinato con OpenSSL 3 (Apache-2.0) esercita l'opzione GPLv3. Le licenze degli altri componenti e l'eccezione limitata di Gmsh restano invariate: vedi `LICENSE-APPLICATION.md`, `GPL-3.0.txt`, `THIRD_PARTY_NOTICES.md` e `licenses/`. Non è inclusa alcuna DLL CSI.

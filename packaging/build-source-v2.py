@@ -34,8 +34,7 @@ def main(version):
     if (ROOT / '.git').exists():
         tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode("utf-8").split("\0")
     else:
-        # A corresponding-source ZIP must itself be buildable without the
-        # private development repository or its Git index.
+        # A corresponding-source ZIP must itself be buildable without a Git index.
         tracked = [path.relative_to(ROOT).as_posix() for path in ROOT.rglob('*')
                    if path.is_file() and not any(part in ('bin', 'obj', 'build', 'build-v2',
                        'dist', 'dist-v2', 'cache', 'artifacts') for part in path.relative_to(ROOT).parts)]
@@ -67,14 +66,11 @@ def main(version):
         "packaging/build-source-v2.py", "packaging/TestV2Standalone.ps1",
         "packaging/TestV2MenuMigration.ps1", "packaging/InstallV2FromZip.ps1",
         "packaging/TestFEMeshHostDiscovery.ps1",
-        "tools/VerifyGmshV2Help.py", "tools/TestFEMeshBrandMigration.ps1",
+        "tools/VerifyGmshV2Help.py",
         "tools/TestFEMeshNumericTest01.ps1", "tools/ProbeBug02Snapshot.ps1",
         "Directory.Build.props", "requirements.txt",
         "LICENSE", "GPL-3.0.txt", "LICENSE-APPLICATION.md", "SAP2000-LINKING-EXCEPTION.md",
         "THIRD_PARTY_NOTICES.md", "packaging/requirements-build.txt",
-        "packaging/publish-v2-feed.py", "packaging/publish-v1-v2-upgrade.py",
-        "updates/manifest-v2.json", "updates/manifest.json",
-        "tools/TestUpdateNotice.ps1",
         "run_test01_fast.cs", "RunTest01Fast.csproj", "FastTest/RunTest01Fast.csproj",
         "packaging/TestFEMeshMenus.ps1", "tools/VerifyFEMeshBridgeResults.py",
         "tools/TestFEMeshHosts.ps1",
@@ -102,8 +98,8 @@ def main(version):
         "tools/InspectSapSharedSeamNames.py", "tools/TestV2TopologyAwareJointIndex.ps1",
         "tools/TestV2SapApiErrorMessage.ps1", "tools/TestV2OptionalTransferWarning.ps1",
         "tools/TestGmshSizeQuality.ps1", "tools/TestV2QualityLayout.ps1",
-        "tools/TestV1ToV2UpdateFeed.ps1", "tools/TestSapUnitContext.ps1",
-         "tools/UpdateV246Help.py",
+        "tools/TestSapUnitContext.ps1",
+          "tools/UpdateV246Help.py",
     })
     target = ARTIFACTS / f"Sap2000QuadMesher-{version}-source.zip"
     if target.exists():

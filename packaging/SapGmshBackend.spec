@@ -26,6 +26,15 @@ a = Analysis(
     hookspath=[], hooksconfig={}, runtime_hooks=[], excludes=["numpy"],
     noarchive=False, optimize=0,
 )
+# The Visual C++ runtime is an external prerequisite installed by Microsoft.
+# Fail if the expected DLLs are absent from dependency analysis: otherwise a
+# changed Python environment could silently produce a different package.
+external_runtime = {"VCRUNTIME140.DLL", "VCRUNTIME140_1.DLL"}
+found = {Path(entry[0]).name.upper() for entry in a.binaries} & external_runtime
+if found != external_runtime:
+    raise RuntimeError(f"Expected both Visual C++ runtime DLLs in analysis, found {found}")
+a.binaries = [entry for entry in a.binaries if Path(entry[0]).name.upper() not in external_runtime]
+
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="SapQuadMesherBackend",
           debug=False, bootloader_ignore_signals=False, strip=False, upx=True,

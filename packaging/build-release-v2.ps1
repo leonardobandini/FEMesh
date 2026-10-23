@@ -29,9 +29,10 @@ New-Item -ItemType Directory -Path $build | Out-Null
 try {
     $pluginBuild = Join-Path $build 'plugin'
     $installerBuild = Join-Path $build 'installer'
-    & dotnet build (Join-Path $root 'SapQuadTransitionPlugin\SapGmshReplacement.csproj') -c Release -o $pluginBuild
+    # Avoid embedding this machine's absolute PDB path in distributed binaries.
+    & dotnet build (Join-Path $root 'SapQuadTransitionPlugin\SapGmshReplacement.csproj') -c Release --no-incremental -p:DebugType=none -p:DebugSymbols=false -o $pluginBuild
     if ($LASTEXITCODE -ne 0) { throw 'V2 replacement plugin build failed.' }
-    & dotnet build (Join-Path $root 'packaging\SQMV2Installer.csproj') -c Release -o $installerBuild
+    & dotnet build (Join-Path $root 'packaging\SQMV2Installer.csproj') -c Release --no-incremental -p:DebugType=none -p:DebugSymbols=false -o $installerBuild
     if ($LASTEXITCODE -ne 0) { throw 'V2 installer build failed.' }
     if (-not $SkipBackendBuild) {
         & python -m PyInstaller --noconfirm --clean --distpath (Join-Path $PSScriptRoot 'dist-v2') --workpath (Join-Path $PSScriptRoot 'build-v2') (Join-Path $PSScriptRoot 'SapGmshBackend.spec')
@@ -122,7 +123,8 @@ try {
         elseif ($version -eq '2.0.60') { '2.0.59' }
         elseif ($version -eq '2.0.61') { '2.0.59' }
         elseif ($version -eq '2.0.62') { '2.0.61' }
-        elseif ($version -eq '2.0.63') { '2.0.62' } else { '2.0.13' }
+        elseif ($version -eq '2.0.63') { '2.0.62' }
+        elseif ($version -eq '2.0.64') { '2.0.63' } else { '2.0.13' }
     $oldV2 = Join-Path $artifacts "Sap2000QuadMesher-$previous"
     if (Test-Path -LiteralPath (Join-Path $oldV2 'SQMPluginInstaller.exe') -PathType Leaf) {
         $trialV2 = Join-Path $build 'v2-upgrade-trial'
