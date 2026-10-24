@@ -5,10 +5,9 @@ if /I "%~1"=="verify" (
   "%~dp0SQMPluginInstaller.exe" verify
   exit /b
 )
-"%~dp0SQMPluginInstaller.exe" install
-if errorlevel 1 (
-  echo Installation failed.
+if not exist "%~dp0FEMeshSetup.exe" (
+  echo FEMesh graphical installer is missing.
   pause
   exit /b 1
 )
-pause
+start "" "%~dp0FEMeshSetup.exe"

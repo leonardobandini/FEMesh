@@ -20,7 +20,11 @@ distribution elects the GPLv3 option permitted by the "or later" clauses of
 both the original FEMesh code and Gmsh. Other components retain their own
 licenses. This choice does not alter Gmsh's original license or exception.
 
-Each distributed release must provide the corresponding FEMesh/backend source
-archive and the upstream Gmsh 4.15.2 source archive alongside the binary,
-identified by version and checksums. A release tag alone is not a substitute
-for making the corresponding source available to recipients.
+Each distributed release provides the corresponding FEMesh/backend source
+archive and the upstream Gmsh 4.15.2 source archive alongside the unmodified
+official Gmsh wheel binary, identified by version and checksums. The candidate
+also lists four pinned upstream native source archives in `NATIVE-SOURCES.json`;
+these are supplementary assets, not a claim that FEMesh rebuilt the upstream
+Windows wheel byte for byte. Further component notices and upstream sources
+are identified in `THIRD_PARTY_NOTICES.md`. A release tag alone is not a
+substitute for making the listed sources available to recipients.

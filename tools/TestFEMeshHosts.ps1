@@ -6,7 +6,8 @@ param([Parameter(Mandatory=$true)][ValidateSet('CSiBridge','ETABS')][string]$Hos
        [switch]$Undo,
        [switch]$AllAtomic,
        [ValidatePattern('^nTEST\d{3}$')][string[]]$CaseIds=@(),
-       [string]$Ids='')
+        [string]$Ids='',
+        [string]$InputModelDirectory='', [string]$ManifestPath='')
 $ErrorActionPreference='Stop'
 $temp=Join-Path $env:TEMP 'opencode'
 if(-not(Test-Path -LiteralPath $temp -PathType Container) -or
@@ -76,7 +77,11 @@ try {
     if($code -ne 0){throw "Cannot query $HostKind version."}
     "$HostKind VERSION=$version PID=$ownedPid"
     $assembly=[Reflection.Assembly]::LoadFrom((Resolve-Path -LiteralPath $Plugin).Path)
-    $manifest=Get-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'examples\atomic\manifest.json') -Raw | ConvertFrom-Json
+    $manifestFile=if($ManifestPath){(Resolve-Path -LiteralPath $ManifestPath).Path}
+                  else{Join-Path (Split-Path -Parent $PSScriptRoot) 'examples\atomic\manifest.json'}
+    $models=if($InputModelDirectory){(Resolve-Path -LiteralPath $InputModelDirectory).Path}
+            else{Join-Path (Split-Path -Parent $PSScriptRoot) 'examples\atomic\models'}
+    $manifest=Get-Content -LiteralPath $manifestFile -Raw | ConvertFrom-Json
     $cases=if($HostKind -eq 'CSiBridge'){
         if($requested.Count){$requested}elseif($CaseIds.Count){@($CaseIds)}elseif($AllAtomic){@($manifest | ForEach-Object id)}else{@('nTEST001','nTEST014')}
     }else{@('synthetic-floor')}
@@ -88,7 +93,7 @@ try {
         New-Item -ItemType Directory -Path $folder|Out-Null
         $output=Join-Path $folder ($id+$(if($HostKind -eq 'CSiBridge'){'.bdb'}else{'.edb'}))
         if($HostKind -eq 'CSiBridge'){
-            $source=Join-Path (Split-Path -Parent $PSScriptRoot) ('examples\atomic\models\'+$id+'.sdb')
+            $source=Join-Path $models ($id+'.sdb')
             $input=Join-Path $folder ($id+'-input.sdb')
             $hash=(Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
             Copy-Item -LiteralPath $source -Destination $input

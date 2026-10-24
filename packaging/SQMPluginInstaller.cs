@@ -4,6 +4,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -21,6 +22,9 @@ internal static class SQMPluginInstaller
     private const string DllName = "SapQuadTransitionPlugin.dll";
     private const string MenuName = "SapQuadTransitionPlugin";
     private const string MenuText = "FEMesh";
+    private const string VisualCppDownload = "https://aka.ms/vc14/vc_redist.x64.exe";
+    private const string VisualCppRegistryKey = @"SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64";
+    private static readonly Version MinimumVisualCppVersion = new Version(14, 42, 34226, 3);
 
     private static int Main(string[] args)
     {
@@ -69,11 +73,19 @@ internal static class SQMPluginInstaller
                 throw new ArgumentException("The test installation must use a child directory of the temporary folder.");
             if (args[0] == "verify") { VerifyPackage(source); return 0; }
             if (args[0] == "test-install") { Install(source, root, false); return 0; }
+            Phase("hosts");
             if (Process.GetProcessesByName("SAP2000").Length != 0 ||
                 Process.GetProcessesByName("CSiBridge").Length != 0 ||
                 Process.GetProcessesByName("ETABS").Length != 0)
                 throw new InvalidOperationException("Close SAP2000, CSiBridge and ETABS before installing or uninstalling FEMesh. Save any models first if needed.");
-            if (args[0] == "install") Install(source, root, true);
+            if (args[0] == "install")
+            {
+                Phase("prerequisite");
+                EnsureVisualCppRuntime();
+                Phase("prerequisite-ready");
+                Install(source, root, true);
+                Phase("done");
+            }
             else Uninstall(root);
             return 0;
         }
@@ -84,13 +96,131 @@ internal static class SQMPluginInstaller
         }
     }
 
+    private static void Phase(string name)
+    {
+        Console.WriteLine("FEMESH_PHASE=" + name);
+        Console.Out.Flush();
+    }
+
+    private static bool HasRequiredVisualCppVersion(Version version)
+    {
+        return version != null && version.CompareTo(MinimumVisualCppVersion) >= 0;
+    }
+
+    private static Version ReadVisualCppVersion()
+    {
+        foreach (RegistryView view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
+        {
+            using (RegistryKey machine = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, view))
+            using (RegistryKey runtime = machine.OpenSubKey(VisualCppRegistryKey))
+            {
+                if (runtime == null || Convert.ToInt32(runtime.GetValue("Installed", 0)) != 1) continue;
+                Version parsed = ParseVisualCppVersion(Convert.ToString(runtime.GetValue("Version", "")));
+                if (parsed != null) return parsed;
+                try
+                {
+                    return new Version(Convert.ToInt32(runtime.GetValue("Major")),
+                        Convert.ToInt32(runtime.GetValue("Minor")),
+                        Convert.ToInt32(runtime.GetValue("Bld")),
+                        Convert.ToInt32(runtime.GetValue("Rbld")));
+                }
+                catch (Exception error) when (error is ArgumentException || error is FormatException ||
+                    error is InvalidCastException || error is OverflowException)
+                {
+                    continue;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static bool IsMicrosoftSigned(string file)
+    {
+        // Windows PowerShell verifies the Authenticode signature AND the publisher's trust chain.
+        // X509Certificate.CreateFromSignedFile alone does not verify the file signature.
+        string script = "$s=Get-AuthenticodeSignature -LiteralPath '" + file.Replace("'", "''") +
+            "'; if ($s.Status -ne 'Valid' -or $s.SignerCertificate.Subject -notmatch " +
+            "'(^|,\\s*)O=Microsoft Corporation(,|$)') { exit 1 }; exit 0";
+        string encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
+        string powershell = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+            @"System32\WindowsPowerShell\v1.0\powershell.exe");
+        using (Process check = Process.Start(new ProcessStartInfo(powershell,
+            "-NoProfile -NonInteractive -EncodedCommand " + encoded)
+        {
+            UseShellExecute = false, CreateNoWindow = true
+        }))
+        {
+            if (!check.WaitForExit(30000)) { check.Kill(); return false; }
+            return check.ExitCode == 0;
+        }
+    }
+
+    private static void EnsureVisualCppRuntime()
+    {
+        if (HasRequiredVisualCppVersion(ReadVisualCppVersion())) return;
+        Console.WriteLine("Microsoft Visual C++ Redistributable x64 14.42.34226.3 or later is required.");
+        Console.WriteLine("Downloading the separate prerequisite directly from Microsoft: " + VisualCppDownload);
+        string directory = Path.Combine(Path.GetTempPath(), "FEMesh-vc-redist-" + System.Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string file = Path.Combine(directory, "vc_redist.x64.exe");
+            Phase("download");
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+            using (WebClient download = new WebClient()) download.DownloadFile(VisualCppDownload, file);
+            Phase("publisher-check");
+            if (!IsMicrosoftSigned(file) || !HasRequiredVisualCppVersion(
+                ParseVisualCppVersion(FileVersionInfo.GetVersionInfo(file).FileVersion)))
+                throw new InvalidDataException("The downloaded prerequisite is not a trusted Microsoft x64 Redistributable of the required version.");
+            Phase("microsoft-setup");
+            Console.WriteLine("Starting Microsoft's interactive installer. Complete its license and UAC prompts.");
+            using (Process installer = Process.Start(new ProcessStartInfo(file, "/install")
+            {
+                UseShellExecute = true, Verb = "runas"
+            }))
+            {
+                installer.WaitForExit();
+                if (installer.ExitCode == 3010)
+                    throw new InvalidOperationException("Microsoft Visual C++ installation requires a restart. Restart Windows, then run the FEMesh installer again.");
+                if (installer.ExitCode != 0)
+                    throw new InvalidOperationException("Microsoft Visual C++ installation was cancelled or failed (code " + installer.ExitCode + ").");
+            }
+            if (!HasRequiredVisualCppVersion(ReadVisualCppVersion()))
+                throw new InvalidOperationException("Microsoft Visual C++ installation finished, but the required x64 version was not detected.");
+        }
+        catch (Exception error)
+        {
+            throw new InvalidOperationException("FEMesh installation has not started. Install the prerequisite from " +
+                VisualCppDownload + " and retry. " + error.Message, error);
+        }
+        finally
+        {
+            try { Directory.Delete(directory, true); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    private static Version ParseVisualCppVersion(string text)
+    {
+        Version version;
+        return Version.TryParse((text ?? "").TrimStart('v', 'V'), out version) ? version : null;
+    }
+
     private static void VerifyPackage(string source)
     {
         foreach (string file in new[] { DllName, "install_plugin.cmd", "uninstall_plugin.cmd", "README.md" })
             if (!File.Exists(Path.Combine(source, file))) throw new FileNotFoundException("Package file missing: " + file);
         foreach (string file in new[] {
 #if GMSH_V2
-            "sap_gmsh_mesher.py", "docs\\help-gmsh-v2\\index-it.html", "docs\\help-gmsh-v2\\index-en.html",
+            "FEMeshSetup.exe", "LICENSE", "GPL-3.0.txt", "LICENSE-APPLICATION.md", "NATIVE-SOURCES.json",
+            "THIRD_PARTY_NOTICES.md", "SOURCE.md", "sap_gmsh_mesher.py",
+            "licenses\\GMSH-LICENSE.txt", "licenses\\PYTHON-LICENSE.txt",
+            "licenses\\OCCT-LGPL-2.1.txt", "licenses\\OCCT-LGPL-EXCEPTION.txt",
+            "licenses\\FLTK-LICENSE.txt", "licenses\\MED-LGPL-3.0.txt", "licenses\\MED-GPL-3.0.txt",
+            "licenses\\PETSC-LICENSE.txt", "licenses\\HDF5-LICENSE.txt", "licenses\\HDF5-LBNL-LICENSE.txt",
+            "licenses\\CGNS-LICENSE.txt", "licenses\\MMG-LICENSE.txt", "licenses\\MMG-LGPL-3.0.txt",
+            "docs\\help-gmsh-v2\\index-it.html", "docs\\help-gmsh-v2\\index-en.html",
             "docs\\help-gmsh-v2\\style.css", "docs\\help-gmsh-v2\\assets\\examples.json",
 #else
             "docs\\help\\index-it.html", "docs\\help\\index-en.html", "docs\\help\\help.css",
@@ -157,14 +287,19 @@ internal static class SQMPluginInstaller
     {
         if (string.Equals(source.TrimEnd('\\'), root.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
         {
+            Phase("verification");
             VerifyPackage(root);
+            Phase("already-installed");
             if (register)
             {
+                Phase("registration");
                 Register(Path.Combine(root, DllName));
+                Phase("menus");
                 ConfigureHostMenus();
             }
             return;
         }
+        Phase("verification");
         VerifyPackage(source);
         string parent = Path.GetDirectoryName(root);
         Directory.CreateDirectory(parent);
@@ -174,8 +309,10 @@ internal static class SQMPluginInstaller
         bool movedOld = false, movedNew = false, copiedOverOld = false;
         try
         {
+            Phase("copy");
             CopyDirectory(source, staging);
             VerifyPackage(staging);
+            Phase(Directory.Exists(root) ? "previous-version" : "previous-none");
             if (Directory.Exists(root))
             {
                 try { MoveDirectory(root, backup); movedOld = true; }
@@ -190,7 +327,11 @@ internal static class SQMPluginInstaller
             }
             if (copiedOverOld) { CopyDirectory(staging, root, true); VerifyPackage(root); }
             else { MoveDirectory(staging, root); movedNew = true; }
-            if (register) Register(Path.Combine(root, DllName));
+            if (register)
+            {
+                Phase("registration");
+                Register(Path.Combine(root, DllName));
+            }
         }
         catch
         {
@@ -218,6 +359,7 @@ internal static class SQMPluginInstaller
         }
         if (register)
         {
+            Phase("menus");
             ConfigureHostMenus();
             string legacy = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Programs", "SQM_Plugin");

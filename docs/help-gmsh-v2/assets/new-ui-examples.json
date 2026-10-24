@@ -67,8 +67,7 @@
       "triangles": 0
     },
     "qualityPassed": true,
-    "qualitySummary": "Elements: 50 quads, 0 triangles. Outside shape references: 0 (0% of area). Size exceptions: 0 elements (0% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-new-group-1\\nTEST001"
+    "qualitySummary": "Elements: 50 quads, 0 triangles. Outside shape references: 0 (0% of area). Size exceptions: 0 elements (0% of area). Invalid: 0."
   },
   {
     "id": "nTEST003",
@@ -138,8 +137,7 @@
       "triangles": 12
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 48 quads, 12 triangles. Outside shape references: 0 (0% of area). Size exceptions: 7 elements (14.552% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-new-group-1\\nTEST003"
+    "qualitySummary": "Elements: 48 quads, 12 triangles. Outside shape references: 0 (0% of area). Size exceptions: 7 elements (14.552% of area). Invalid: 0."
   },
   {
     "id": "nTEST010",
@@ -217,8 +215,7 @@
       "triangles": 3
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 54 quads, 3 triangles. Outside shape references: 0 (0% of area). Size exceptions: 5 elements (12.135% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-new-group-1\\nTEST010"
+    "qualitySummary": "Elements: 54 quads, 3 triangles. Outside shape references: 0 (0% of area). Size exceptions: 5 elements (12.135% of area). Invalid: 0."
   },
   {
     "id": "nTEST011",
@@ -292,8 +289,7 @@
       "triangles": 8
     },
     "qualityPassed": true,
-    "qualitySummary": "Elements: 101 quads, 8 triangles. Outside shape references: 0 (0% of area). Size exceptions: 0 elements (0% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-new-group-1\\nTEST011"
+    "qualitySummary": "Elements: 101 quads, 8 triangles. Outside shape references: 0 (0% of area). Size exceptions: 0 elements (0% of area). Invalid: 0."
   },
   {
     "id": "nTEST012",
@@ -367,8 +363,7 @@
       "triangles": 26
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 126 quads, 26 triangles. Outside shape references: 8 (2.461% of area). Size exceptions: 2 elements (1.705% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-new-group-1\\nTEST012"
+    "qualitySummary": "Elements: 126 quads, 26 triangles. Outside shape references: 8 (2.461% of area). Size exceptions: 2 elements (1.705% of area). Invalid: 0."
   },
   {
     "id": "nTEST014",
@@ -439,8 +434,7 @@
       "triangles": 7
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 132 quads, 7 triangles. Outside shape references: 1 (0.154% of area). Size exceptions: 8 elements (7.406% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-new-group-1\\nTEST014"
+    "qualitySummary": "Elements: 132 quads, 7 triangles. Outside shape references: 1 (0.154% of area). Size exceptions: 8 elements (7.406% of area). Invalid: 0."
   },
   {
     "id": "nTEST005-standard",
@@ -510,8 +504,7 @@
       "triangles": 22
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 151 quads, 22 triangles. Outside shape references: 2 (0.252% of area). Size exceptions: 6 elements (4.083% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-2\\nTEST005"
+    "qualitySummary": "Elements: 151 quads, 22 triangles. Outside shape references: 2 (0.252% of area). Size exceptions: 6 elements (4.083% of area). Invalid: 0."
   },
   {
     "id": "nTEST017-standard",
@@ -582,8 +575,7 @@
       "triangles": 26
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 294 quads, 26 triangles. Outside shape references: 0 (0% of area). Size exceptions: 20 elements (7.911% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-2\\nTEST017"
+    "qualitySummary": "Elements: 294 quads, 26 triangles. Outside shape references: 0 (0% of area). Size exceptions: 20 elements (7.911% of area). Invalid: 0."
   },
   {
     "id": "nTEST024-standard",
@@ -653,8 +645,7 @@
       "triangles": 22
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 101 quads, 22 triangles. Outside shape references: 12 (5.202% of area). Size exceptions: 13 elements (13.575% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-2\\nTEST024"
+    "qualitySummary": "Elements: 101 quads, 22 triangles. Outside shape references: 12 (5.202% of area). Size exceptions: 13 elements (13.575% of area). Invalid: 0."
   },
   {
     "id": "nTEST007",
@@ -729,8 +720,7 @@
       "triangles": 14
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 262 quads, 14 triangles. Outside shape references: 0 (0% of area). Size exceptions: 8 elements (3.032% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-2\\nTEST007"
+    "qualitySummary": "Elements: 262 quads, 14 triangles. Outside shape references: 0 (0% of area). Size exceptions: 8 elements (3.032% of area). Invalid: 0."
   },
   {
     "id": "nTEST008",
@@ -808,8 +798,7 @@
       "triangles": 12
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 265 quads, 12 triangles. Outside shape references: 0 (0% of area). Size exceptions: 4 elements (1.896% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-2\\nTEST008"
+    "qualitySummary": "Elements: 265 quads, 12 triangles. Outside shape references: 0 (0% of area). Size exceptions: 4 elements (1.896% of area). Invalid: 0."
   },
   {
     "id": "nTEST013",
@@ -884,8 +873,7 @@
       "triangles": 2
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 163 quads, 2 triangles. Outside shape references: 0 (0% of area). Size exceptions: 5 elements (2.725% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-2\\nTEST013"
+    "qualitySummary": "Elements: 163 quads, 2 triangles. Outside shape references: 0 (0% of area). Size exceptions: 5 elements (2.725% of area). Invalid: 0."
   },
   {
     "id": "nTEST018",
@@ -960,8 +948,7 @@
       "triangles": 16
     },
     "qualityPassed": true,
-    "qualitySummary": "Elements: 266 quads, 16 triangles. Outside shape references: 0 (0% of area). Size exceptions: 0 elements (0% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-2\\nTEST018"
+    "qualitySummary": "Elements: 266 quads, 16 triangles. Outside shape references: 0 (0% of area). Size exceptions: 0 elements (0% of area). Invalid: 0."
   },
   {
     "id": "nTEST019",
@@ -1036,8 +1023,7 @@
       "triangles": 16
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 283 quads, 16 triangles. Outside shape references: 0 (0% of area). Size exceptions: 28 elements (10.912% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-2\\nTEST019"
+    "qualitySummary": "Elements: 283 quads, 16 triangles. Outside shape references: 0 (0% of area). Size exceptions: 28 elements (10.912% of area). Invalid: 0."
   },
   {
     "id": "nTEST020",
@@ -1111,8 +1097,7 @@
       "triangles": 0
     },
     "qualityPassed": true,
-    "qualitySummary": "Elements: 592 quads, 0 triangles. Outside shape references: 0 (0% of area). Size exceptions: 0 elements (0% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-2\\nTEST020"
+    "qualitySummary": "Elements: 592 quads, 0 triangles. Outside shape references: 0 (0% of area). Size exceptions: 0 elements (0% of area). Invalid: 0."
   },
   {
     "id": "nTEST028",
@@ -1190,8 +1175,7 @@
       "triangles": 26
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 592 quads, 26 triangles. Outside shape references: 2 (0.147% of area). Size exceptions: 17 elements (3.066% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-2\\nTEST028"
+    "qualitySummary": "Elements: 592 quads, 26 triangles. Outside shape references: 2 (0.147% of area). Size exceptions: 17 elements (3.066% of area). Invalid: 0."
   },
   {
     "id": "nTEST035",
@@ -1269,8 +1253,7 @@
       "triangles": 26
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 592 quads, 26 triangles. Outside shape references: 2 (0.147% of area). Size exceptions: 17 elements (3.066% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-2\\nTEST035"
+    "qualitySummary": "Elements: 592 quads, 26 triangles. Outside shape references: 2 (0.147% of area). Size exceptions: 17 elements (3.066% of area). Invalid: 0."
   },
   {
     "id": "nTEST005-ogrid",
@@ -1340,8 +1323,7 @@
       "triangles": 42
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 249 quads, 42 triangles. Outside shape references: 20 (2.623% of area). Size exceptions: 6 elements (4.031% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-3\\nTEST005"
+    "qualitySummary": "Elements: 249 quads, 42 triangles. Outside shape references: 20 (2.623% of area). Size exceptions: 6 elements (4.031% of area). Invalid: 0."
   },
   {
     "id": "nTEST006-ogrid",
@@ -1414,8 +1396,7 @@
       "triangles": 56
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 492 quads, 56 triangles. Outside shape references: 32 (1.783% of area). Size exceptions: 8 elements (1.754% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-3\\nTEST006"
+    "qualitySummary": "Elements: 492 quads, 56 triangles. Outside shape references: 32 (1.783% of area). Size exceptions: 8 elements (1.754% of area). Invalid: 0."
   },
   {
     "id": "nTEST015-symmetry",
@@ -1485,8 +1466,7 @@
       "triangles": 0
     },
     "qualityPassed": true,
-    "qualitySummary": "Elements: 120 quads, 0 triangles. Outside shape references: 0 (0% of area). Size exceptions: 0 elements (0% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-3\\nTEST015"
+    "qualitySummary": "Elements: 120 quads, 0 triangles. Outside shape references: 0 (0% of area). Size exceptions: 0 elements (0% of area). Invalid: 0."
   },
   {
     "id": "nTEST025-ogrid",
@@ -1603,8 +1583,7 @@
       "triangles": 80
     },
     "qualityPassed": true,
-    "qualitySummary": "Elements: 196 quads, 80 triangles. Outside shape references: 34 (3.658% of area). Size exceptions: 0 elements (0% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-3\\nTEST025"
+    "qualitySummary": "Elements: 196 quads, 80 triangles. Outside shape references: 34 (3.658% of area). Size exceptions: 0 elements (0% of area). Invalid: 0."
   },
   {
     "id": "nTEST027-ogrid",
@@ -1677,8 +1656,7 @@
       "triangles": 56
     },
     "qualityPassed": false,
-    "qualitySummary": "Elements: 488 quads, 56 triangles. Outside shape references: 24 (0.858% of area). Size exceptions: 20 elements (4.318% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-3\\nTEST027"
+    "qualitySummary": "Elements: 488 quads, 56 triangles. Outside shape references: 24 (0.858% of area). Size exceptions: 20 elements (4.318% of area). Invalid: 0."
   },
   {
     "id": "nTEST034-symmetry",
@@ -1795,7 +1773,6 @@
       "triangles": 24
     },
     "qualityPassed": true,
-    "qualitySummary": "Elements: 116 quads, 24 triangles. Outside shape references: 18 (1.932% of area). Size exceptions: 0 elements (0% of area). Invalid: 0.",
-    "runFolder": "C:\\Users\\leona\\AppData\\Local\\Temp\\opencode\\sqm-v226-help-final-group-3\\nTEST034"
+    "qualitySummary": "Elements: 116 quads, 24 triangles. Outside shape references: 18 (1.932% of area). Size exceptions: 0 elements (0% of area). Invalid: 0."
   }
 ]

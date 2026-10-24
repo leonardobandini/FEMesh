@@ -701,6 +701,48 @@ class GmshV2Tests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "no closed"):
                 main(boundary, output, .08, config)
 
+    def test_grouped_opening_survives_coincident_non_group_frames(self):
+        # The long grouped right side has been deduplicated by the SAP-side
+        # segment splitter. Three pieces now carry the names of overlapping
+        # non-group frames; marking those pieces is required to close the loop.
+        corners = ((0, 0, 0), (2, 0, 0), (2, 2, 0), (0, 2, 0))
+        grouped = (((.6, .6, 0), (1.4, .6, 0)),
+                   ((.6, .6, 0), (.6, 1.4, 0)),
+                   ((.6, 1.4, 0), (1.4, 1.4, 0)))
+        right = (((1.4, .4, 0), (1.4, .6, 0)),
+                 ((1.4, .6, 0), (1.4, 1, 0)),
+                 ((1.4, 1, 0), (1.4, 1.4, 0)),
+                 ((1.4, 1.4, 0), (1.4, 1.6, 0)))
+        with tempfile.TemporaryDirectory() as directory:
+            boundary = os.path.join(directory, 'boundary.csv')
+            output = os.path.join(directory, 'mesh.csv')
+            config = os.path.join(directory, 'settings.json')
+            with open(config, 'w') as stream:
+                json.dump(dict(algorithm=8, recombine=True, recombination=0,
+                               optimize=False, smoothing=1, options={}), stream)
+            for recovered in (False, True):
+                with open(boundary, 'w', newline='') as stream:
+                    writer = csv.writer(stream)
+                    writer.writerow(('AREA', 'A1', 'Shell'))
+                    for i, corner in enumerate(corners, 1):
+                        writer.writerow(('CORNER', i, str(i), 0, *corner))
+                    for i, (first, last) in enumerate(grouped + right, 1):
+                        belongs = i <= len(grouped) or recovered and i in (5, 6)
+                        writer.writerow(('FRAME', i, str(i), 0, *first, *last, 0, int(belongs)))
+                if not recovered:
+                    with self.assertRaisesRegex(ValueError, 'no closed'):
+                        main(boundary, output, .16, config)
+                    continue
+                main(boundary, output, .16, config)
+                with open(output, newline='') as stream:
+                    rows = list(csv.reader(stream))
+                nodes = {int(row[1]): tuple(map(float, row[2:])) for row in rows if row[0] == 'N'}
+                elements = [tuple(map(int, row[1:])) for row in rows if row[0] == 'E']
+                self.assertTrue(elements)
+                self.assertFalse(any(.62 < sum(nodes[tag][0] for tag in element) / len(element) < 1.38
+                                     and .62 < sum(nodes[tag][1] for tag in element) / len(element) < 1.38
+                                     for element in elements))
+
     def test_grouped_opening_crosses_unprotected_shared_area_seam(self):
         from sap_gmsh_mesher import mesh_areas
         with tempfile.TemporaryDirectory() as directory:

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Ship complete corresponding V2 sources next to the binary installer."""
 import hashlib
+import json
 import subprocess
 import sys
 import zipfile
@@ -62,7 +63,10 @@ def main(version):
         "SapQuadTransitionPlugin/PluginV2.cs",
          "SapQuadTransitionPlugin/GmshPreviewPanel.cs",
          "README.md", "CHANGELOG.md", "packaging/SOURCE.template.md",
-        "packaging/SQMV2Installer.csproj", "packaging/build-release-v2.ps1",
+         "packaging/native-gmsh-sources.json", "packaging/verify-native-sources.py",
+         "packaging/SQMV2Installer.csproj", "packaging/FEMeshSetup.csproj",
+         "packaging/FEMeshSetup.cs", "packaging/BackendVersion.txt",
+         "packaging/build-release-v2.ps1", "packaging/PrepareV266Candidate.ps1",
         "packaging/build-source-v2.py", "packaging/TestV2Standalone.ps1",
         "packaging/TestV2MenuMigration.ps1", "packaging/InstallV2FromZip.ps1",
         "packaging/TestFEMeshHostDiscovery.ps1",
@@ -71,7 +75,10 @@ def main(version):
         "Directory.Build.props", "requirements.txt",
         "LICENSE", "GPL-3.0.txt", "LICENSE-APPLICATION.md", "SAP2000-LINKING-EXCEPTION.md",
         "THIRD_PARTY_NOTICES.md", "packaging/requirements-build.txt",
-        "tools/TestUpdateNotice.ps1",
+        "tools/TestUpdateNotice.ps1", "tools/TestOpeningMembership.ps1",
+        "tools/TestModalLockWarning.ps1", "tools/TestUnsavedModelHost.ps1",
+         "tools/TestUnsavedModelUi.ps1", "tools/TestVisualCppPrerequisite.ps1",
+         "tools/TestFEMeshSetupUi.ps1", "tools/TestMicrosoftPrerequisiteDownload.ps1",
         "run_test01_fast.cs", "RunTest01Fast.csproj", "FastTest/RunTest01Fast.csproj",
         "packaging/TestFEMeshMenus.ps1", "tools/VerifyFEMeshBridgeResults.py",
         "tools/TestFEMeshHosts.ps1",
@@ -112,8 +119,16 @@ def main(version):
                 raise FileNotFoundError(path)
             archive.write(path, name)
         archive.write(binding, "third_party/gmsh.py")
-        for license_name in ("GMSH-LICENSE.txt", "PYTHON-LICENSE.txt"):
-            archive.write(stage / "licenses" / license_name, "licenses/" + license_name)
+        native_sources = json.loads((ROOT / "packaging" / "native-gmsh-sources.json").read_text(encoding="utf-8"))
+        for item in native_sources["components"]:
+            if item["archive"] == "mmg-5.5.2-source.tar.gz":
+                continue  # The versioned MMG source is a separate release asset.
+            source_archive = ROOT / "packaging" / "cache" / item["archive"]
+            if sha(source_archive) != item["sha256"]:
+                raise ValueError("Pinned native source does not match " + item["archive"])
+            archive.write(source_archive, "third_party/native-sources/" + item["archive"])
+        for license_file in sorted((stage / "licenses").glob("*.txt")):
+            archive.write(license_file, "licenses/" + license_file.name)
     (ARTIFACTS / (target.name + ".sha256")).write_text(f"{sha(target)}  {target.name}\n", encoding="ascii")
     print(f"V2_SOURCE={target}")
 

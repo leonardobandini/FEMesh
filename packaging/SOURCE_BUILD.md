@@ -23,24 +23,46 @@ Framework 4.8, Python **3.12.7**, and either SAP2000 or CSiBridge 27+ with
 `CSiAPIv1.dll`. The API DLL is supplied by the independently licensed host;
 **it is not distributed with FEMesh**. Install the
 [official Microsoft Visual C++ Redistributable x64](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist),
-version **14.42.34226.3 or later compatible**, separately before running the
-backend or installer: Visual C++ runtime DLLs are not included in FEMesh. From
+version **14.42.34226.3 or later compatible**, separately before building or
+running the standalone backend: Visual C++ runtime DLLs are not included in
+FEMesh. The graphical installer checks this prerequisite and, if necessary,
+downloads Microsoft's signed installer before installing FEMesh. From
 the top directory of this source archive, in PowerShell:
 
 ```powershell
 python -m pip install -r packaging\requirements-build.txt
 New-Item -ItemType Directory -Path artifacts, packaging\cache -Force | Out-Null
 Copy-Item -LiteralPath "<downloaded release>\gmsh-4.15.2-source.tgz" -Destination packaging\cache\gmsh-4.15.2-source.tgz
+Copy-Item -LiteralPath "<downloaded release>\mmg-5.5.2-source.tar.gz" -Destination packaging\cache\mmg-5.5.2-source.tar.gz
+foreach ($name in @('occt-7.8.1', 'fltk-1.3.11', 'med-4.1.0')) {
+    Copy-Item -LiteralPath "third_party\native-sources\$name-source.tar.gz" -Destination "packaging\cache\$name-source.tar.gz"
+}
 powershell -NoProfile -ExecutionPolicy Bypass -File packaging\build-release-v2.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File packaging\PrepareV266Candidate.ps1
 ```
 
 The release script compiles `SapQuadTransitionPlugin/SapGmshReplacement.csproj`
-against the locally installed CSiAPI, compiles `packaging/SQMV2Installer.csproj`,
+against the locally installed CSiAPI, compiles `packaging/SQMV2Installer.csproj`
+and the bilingual graphical installer `packaging/FEMeshSetup.csproj`,
 builds `packaging/SapGmshBackend.spec` with PyInstaller, verifies the pinned
 Gmsh library and sources, validates the help, and creates matching binary and
 corresponding-source ZIPs under `artifacts/`. An older V1/V2 installable in that
 directory enables additional upgrade tests; it is not required to build the
-current package. `-SkipBackendBuild` reuses a previously built frozen backend.
+current package. `packaging/verify-native-sources.py` checks the four upstream
+source archives against immutable revisions and SHA-256 values in
+`packaging/native-gmsh-sources.json` and stages their license texts. Three
+archives are included above in the FEMesh source ZIP; MMG is a separate asset
+of the same release. The original PETSc/HDF5 permissive notices and the CGNS
+reference text are already in `licenses/` in this source archive and each is
+checked by its own hash. MMG 5.5.2 is pinned to the official tag after
+observing its version in the bundled DLL's execution banner; CGNS has no
+revision exposed by the unmodified official Gmsh wheel;
+neither the sources nor this script claim a bit-for-bit rebuild of that wheel.
+`-SkipBackendBuild` reuses a previously built frozen backend.
+
+`PrepareV266Candidate.ps1` creates `artifacts/candidate-v2.0.66/` with only the
+ten release assets. Its `FEMesh-latest.zip` is copied byte-for-byte from the
+versioned installer; this local alias does not modify any published release.
 
 The source build uses the pinned official Python 3.12.7 runtime. Its separate
 source is available at https://www.python.org/downloads/release/python-3127/ ;

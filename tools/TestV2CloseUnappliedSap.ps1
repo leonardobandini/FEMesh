@@ -1,12 +1,13 @@
 # Validate X/Close rollback against a disposable SAP2000 model and plugin bundle.
 param([Parameter(Mandatory=$true)][string]$Candidate,
-      [Parameter(Mandatory=$true)][string]$Trial,
-      [switch]$Apply)
+       [Parameter(Mandatory=$true)][string]$Trial,
+       [string]$Source = '',
+       [switch]$Apply)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $parent = Join-Path $env:TEMP 'opencode'
 $installed = Join-Path $env:LOCALAPPDATA 'Programs\SAP2000QuadMesher'
-$source = Join-Path $root 'examples\atomic\models\nTEST001.sdb'
+$source = if ($Source) { $Source } else { Join-Path $root 'examples\atomic\models\nTEST001.sdb' }
 $runner = Join-Path $root 'bin\Release\net48\RunTest01Fast.dll'
 if (-not (Test-Path -LiteralPath $parent -PathType Container) -or
     -not $Trial.StartsWith(($parent.TrimEnd('\') + '\'), [StringComparison]::OrdinalIgnoreCase) -or

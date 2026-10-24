@@ -2,7 +2,7 @@
 # Inspect the restored V2 update notice without starting a CSI model.
 param(
     [Parameter(Mandatory=$true)][string]$Plugin,
-    [ValidateSet('Current','Future','Live','Unavailable','Offline')][string]$Scenario = 'Current',
+    [ValidateSet('Current','Future','Live','Unavailable','Offline','Draft','Prerelease','BadAsset')][string]$Scenario = 'Current',
     [string]$ExpectedVersion = ''
 )
 $ErrorActionPreference = 'Stop'
@@ -32,13 +32,13 @@ if ($Scenario -eq 'Offline') {
     [System.Net.WebRequest]::DefaultWebProxy = New-Object System.Net.WebProxy('http://127.0.0.1:1')
 }
 if ($Scenario -notin @('Live','Offline')) {
-    $version = if ($Scenario -eq 'Future') { $future } else { $current }
+    $version = if ($Scenario -in @('Future','Draft','Prerelease','BadAsset')) { $future } else { $current }
     $json = @{
         tag_name = "v$version";
         html_url = "https://github.com/leonardobandini/FEMesh/releases/tag/v$version";
-        draft = $false; prerelease = $false;
+        draft = $Scenario -eq 'Draft'; prerelease = $Scenario -eq 'Prerelease';
         assets = @(@{
-            name = 'FEMesh-latest.zip';
+            name = $(if ($Scenario -eq 'BadAsset') { 'other.zip' } else { 'FEMesh-latest.zip' });
             browser_download_url = "https://github.com/leonardobandini/FEMesh/releases/download/v$version/FEMesh-latest.zip"
         })
     } | ConvertTo-Json -Depth 5 -Compress
@@ -61,7 +61,8 @@ try {
     while ((Get-Date) -lt $deadline) {
         [System.Windows.Forms.Application]::DoEvents()
         if ($expectUpdate -and $timer.Enabled -or
-            ($Scenario -eq 'Current' -or $Scenario -eq 'Live' -and -not $expectUpdate) -and
+            ($Scenario -in @('Current','Draft','Prerelease','BadAsset') -or
+                $Scenario -eq 'Live' -and -not $expectUpdate) -and
                 $notice.Text -match '(up to date|aggiornata)' -or
             $Scenario -in @('Unavailable','Offline') -and $notice.Text -match '(Check for updates|Cerca aggiornamenti)') { break }
         Start-Sleep -Milliseconds 100
@@ -74,7 +75,7 @@ try {
         if ($ExpectedVersion -and $notice.Text -notmatch [regex]::Escape($ExpectedVersion)) {
             throw "Expected version $ExpectedVersion was not shown: $($notice.Text)"
         }
-    } elseif ($Scenario -eq 'Current' -or $Scenario -eq 'Live') {
+    } elseif ($Scenario -in @('Current','Draft','Prerelease','BadAsset','Live')) {
         if ($timer.Enabled -or $notice.Text -notmatch '(up to date|aggiornata)') {
             throw "Up-to-date notice missing: $($notice.Text)"
         }

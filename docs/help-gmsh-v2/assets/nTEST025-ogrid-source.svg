@@ -2607,5 +2607,5 @@
 <circle cx="692.5" cy="115.882" r="3.4" fill="#0f172a" stroke="white" stroke-width="0.8"/>
 <circle cx="692.5" cy="110.441" r="3.4" fill="#0f172a" stroke="white" stroke-width="0.8"/>
 <circle cx="600" cy="382.5" r="3.4" fill="#0f172a" stroke="white" stroke-width="0.8"/>
-<g font-family="Segoe UI,Arial" font-size="14" fill="#334155"><circle cx="72" cy="686" r="4" fill="#0f172a"/><text x="84" y="691">SAP node</text><circle cx="190" cy="686" r="5" fill="#7c3aed"/><text x="203" y="691">selected node</text><line x1="330" y1="686" x2="365" y2="686" stroke="#ea580c" stroke-width="4"/><text x="376" y="691">frame</text><rect x="455" y="679" width="28" height="14" fill="#dbeafe" stroke="#2563eb"/><text x="493" y="691">shell</text></g>
+<g font-family="Segoe UI,Arial" font-size="14" fill="#334155"><circle cx="72" cy="686" r="4" fill="#0f172a"/><text x="84" y="691">SAP2000 node</text><circle cx="190" cy="686" r="5" fill="#7c3aed"/><text x="203" y="691">selected node</text><line x1="330" y1="686" x2="365" y2="686" stroke="#ea580c" stroke-width="4"/><text x="376" y="691">frame</text><rect x="455" y="679" width="28" height="14" fill="#dbeafe" stroke="#2563eb"/><text x="493" y="691">shell</text></g>
 </svg>

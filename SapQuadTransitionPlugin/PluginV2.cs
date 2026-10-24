@@ -37,7 +37,7 @@ namespace SapQuadTransitionPlugin
         private const int AreaObjectType = 5;
         private const int SolidObjectType = 6;
         private const int LinkObjectType = 7;
-        private const string PluginVersion = "2.0.65";
+        private const string PluginVersion = "2.0.66";
         private const string WindowTitle = "FEMesh " + PluginVersion;
         private const string UpdateManifestUrl = "https://api.github.com/repos/leonardobandini/FEMesh/releases/latest";
         private const string LatestDownloadUrl = "https://github.com/leonardobandini/FEMesh/releases/latest/download/FEMesh-latest.zip";
@@ -130,6 +130,18 @@ namespace SapQuadTransitionPlugin
                 return edb;
             }
             return path;
+        }
+
+        private static bool HasSavedModelFile(cSapModel model)
+        {
+            string path;
+            try { path = SavedModelPath(model); }
+            catch (FileNotFoundException) { return false; }
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return false;
+            string extension = Path.GetExtension(path);
+            return string.Equals(extension, ".sdb", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(extension, ".bdb", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(extension, ".edb", StringComparison.OrdinalIgnoreCase);
         }
         private static void LogPluginException(Exception error)
         {
@@ -440,6 +452,9 @@ namespace SapQuadTransitionPlugin
 
         [DllImport("user32.dll")]
         private static extern bool IsWindowEnabled(IntPtr window);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr window);
 
         [DllImport("user32.dll")]
         private static extern bool EnableWindow(IntPtr window, bool enable);
@@ -775,6 +790,100 @@ namespace SapQuadTransitionPlugin
             }
         }
 
+        private sealed class DialogModelLock : IDisposable
+        {
+            private readonly cSapModel model;
+            private readonly bool active;
+            private readonly bool alreadyLocked;
+            private readonly string modelPath;
+            private bool owned, temporaryUnlock, externalUnlock;
+
+            internal DialogModelLock(cSapModel model, bool active)
+            {
+                this.model = model;
+                this.active = active;
+                if (!active) return;
+                modelPath = model.GetModelFilename(true);
+                alreadyLocked = model.GetModelIsLocked();
+                if (!alreadyLocked)
+                {
+                    Check(model.SetModelIsLocked(true), "locking the model while FEMesh is open",
+                        "cSapModel.SetModelIsLocked");
+                    if (!model.GetModelIsLocked())
+                        throw new InvalidOperationException("SAP2000 did not lock the model for FEMesh.");
+                    owned = true;
+                }
+            }
+
+            internal bool Active { get { return active; } }
+            internal bool ExternalUnlockObserved { get { return externalUnlock; } }
+
+            internal void CheckReady()
+            {
+                if (!active) return;
+                if (!string.Equals(model.GetModelFilename(true), modelPath, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("The model changed while FEMesh was open. Close and reopen FEMesh for the current model.");
+                if (alreadyLocked)
+                    throw new InvalidOperationException("The model was already locked when FEMesh opened. Close FEMesh and unlock it before meshing.");
+                if (!temporaryUnlock && !model.GetModelIsLocked())
+                {
+                    // Re-lock promptly, but never treat an observed external
+                    // unlock as proof that no edit occurred in the meantime.
+                    Check(model.SetModelIsLocked(true), "relocking an externally unlocked model",
+                        "cSapModel.SetModelIsLocked");
+                    externalUnlock = true;
+                }
+                if (externalUnlock)
+                    throw new InvalidOperationException("The model was unlocked while FEMesh was open. It has been relocked; close and reopen FEMesh before meshing.");
+            }
+
+            internal void UnlockForWork()
+            {
+                if (!active) return;
+                CheckReady();
+                Check(model.SetModelIsLocked(false), "unlocking the model for FEMesh",
+                    "cSapModel.SetModelIsLocked");
+                if (model.GetModelIsLocked())
+                    throw new InvalidOperationException("SAP2000 did not unlock the model for FEMesh.");
+                temporaryUnlock = true;
+            }
+
+            internal void RelockAfterSave()
+            {
+                if (!active) return;
+                if (!string.Equals(model.GetModelFilename(true), modelPath, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("The active model changed during the pre-mesh save.");
+                // SAP2000 27.1 unlocks the model as a side effect of File.Save,
+                // even when that method successfully saves a locked model.
+                if (!model.GetModelIsLocked())
+                    Check(model.SetModelIsLocked(true), "relocking the model after saving it",
+                        "cSapModel.SetModelIsLocked");
+                if (!model.GetModelIsLocked())
+                    throw new InvalidOperationException("SAP2000 did not relock the model after saving it.");
+            }
+
+            internal void RelockAfterWork()
+            {
+                if (!active || !temporaryUnlock) return;
+                if (!string.Equals(model.GetModelFilename(true), modelPath, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("The model changed while FEMesh was modifying it; the new model was not locked.");
+                Check(model.SetModelIsLocked(true), "relocking the model after FEMesh",
+                    "cSapModel.SetModelIsLocked");
+                if (!model.GetModelIsLocked())
+                    throw new InvalidOperationException("SAP2000 did not relock the model after FEMesh.");
+                temporaryUnlock = false;
+            }
+
+            public void Dispose()
+            {
+                if (!owned || !string.Equals(model.GetModelFilename(true), modelPath,
+                        StringComparison.OrdinalIgnoreCase)) return;
+                if (model.GetModelIsLocked())
+                    Check(model.SetModelIsLocked(false), "restoring the unlocked state when FEMesh closes",
+                        "cSapModel.SetModelIsLocked");
+            }
+        }
+
         private static void RunWithUnitContext(cSapModel model, Action scopeNewModelUnits)
         {
             Console.WriteLine("mesh-stage=reading-model");
@@ -822,6 +931,8 @@ namespace SapQuadTransitionPlugin
             Console.WriteLine("mesh-stage=options-ready");
 
             IntPtr sapWindow = Process.GetCurrentProcess().MainWindowHandle;
+            bool modelHasSavedFile = HasSavedModelFile(model);
+            var sessionLock = new DialogModelLock(model, callbackReleasedInSap() && modelHasSavedFile);
             try
             {
                 using (var dialog = new MeshOptionsDialog(lengthUnit, hasFrames, pointGroups, openingGroups,
@@ -833,7 +944,9 @@ namespace SapQuadTransitionPlugin
                     initialContexts.Count(context => context.CornerNames.Length == 3),
                     initialContexts.Count(context => context.CornerNames.Length > 4),
                     selectedFrames.Length, selectedTypes.Count(type => type == LinkObjectType), selectedPoints.Length);
+                dialog.SetRequiresSavedModel(!modelHasSavedFile);
                 bool leaveCompletedDialog = Environment.GetEnvironmentVariable("SAP_QUAD_LEAVE_COMPLETED_DIALOG") == "1";
+                bool automatedExample = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SAP_QUAD_ATOMIC_SIZE"));
                 // Keep the separate dialog above SAP2000 without disabling its
                 // viewport: the generated mesh can be inspected before Apply.
                 dialog.ShowInTaskbar = true;
@@ -847,10 +960,25 @@ namespace SapQuadTransitionPlugin
                 });
                 if (callbackReleasedInSap()) dialog.AllowViewportInteraction(sapWindow);
                 Console.WriteLine("mesh-stage=dialog-visible");
-                bool automatedExample = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SAP_QUAD_ATOMIC_SIZE"));
+                if (!modelHasSavedFile && !automatedExample) dialog.ShowNeverSavedModelWarning();
                 if (automatedExample) dialog.ApplyAutomatedOptions();
                 Action<bool> refreshSelection = delegate(bool force)
                 {
+                    bool savedNow = HasSavedModelFile(model);
+                    if (savedNow && !modelHasSavedFile)
+                    {
+                        // A new, unsaved model is deliberately left unlocked
+                        // so the user can save it through the host. Acquire
+                        // FEMesh's lock only after the first real SDB/BDB exists.
+                        var acquired = new DialogModelLock(model, callbackReleasedInSap());
+                        sessionLock.Dispose();
+                        sessionLock = acquired;
+                        modelHasSavedFile = true;
+                        dialog.SetRequiresSavedModel(false);
+                        force = true;
+                    }
+                    else if (!savedNow) dialog.SetRequiresSavedModel(true);
+                    if (sessionLock.Active) sessionLock.CheckReady();
                     LiveSelection next = new LiveSelection(model);
                     string nextModelPath = model.GetModelFilename(true);
                     if (!string.Equals(nextModelPath, selectionModelPath, StringComparison.OrdinalIgnoreCase))
@@ -895,7 +1023,11 @@ namespace SapQuadTransitionPlugin
                             selectionClock.ElapsedMilliseconds >= 350)
                         {
                             try { refreshSelection(false); }
-                            catch (Exception error) { dialog.SelectionRefreshFailed(error.Message); }
+                            catch (Exception error)
+                            {
+                                if (sessionLock.ExternalUnlockObserved) dialog.ReportModelLockViolation(error.Message);
+                                else dialog.SelectionRefreshFailed(error.Message);
+                            }
                             selectionClock.Restart();
                         }
                         Thread.Sleep(20);
@@ -909,6 +1041,7 @@ namespace SapQuadTransitionPlugin
                             dialog.SelectionRefreshFailed(error.Message);
                             continue;
                         }
+                        if (!modelHasSavedFile) { dialog.SetRequiresSavedModel(true); continue; }
                         if (areas.Length == 0) { dialog.SelectionUnavailable(); continue; }
                     }
 
@@ -931,10 +1064,12 @@ namespace SapQuadTransitionPlugin
                     bool designTransferLoss = false;
                     try
                     {
+                        dialog.BlockHostForOperation();
                         dialog.BeginWork("Preparing geometry...");
                         var generationClock = Stopwatch.StartNew();
                         dialog.ThrowIfCancellationRequested();
-                        if (model.GetModelIsLocked())
+                        if (sessionLock.Active) sessionLock.CheckReady();
+                        else if (model.GetModelIsLocked())
                             throw new InvalidOperationException(L("The model is locked. Unlock it before generating the mesh.",
                                 "Il modello e bloccato. Sbloccarlo prima di generare la mesh."));
                         ValidateExistingConstraintPositions(model, initialContexts, selectedPoints,
@@ -943,6 +1078,19 @@ namespace SapQuadTransitionPlugin
                         string backupPath = dialog.CreateBackup
                             ? CreateNumberedBackup(SavedModelPath(model)) : null;
                         RecordGenerationPhase("create-numbered-backup", generationClock);
+                        string savedPath = SavedModelPath(model);
+                        if (string.IsNullOrEmpty(savedPath) || !File.Exists(savedPath))
+                            throw new InvalidOperationException(L("Save the model to an SDB/BDB file before generating the mesh.",
+                                "Salvare il modello in un file SDB/BDB prima di generare la mesh."));
+                        dialog.SetIndeterminate(L("Saving the model before meshing...", "Salvataggio del modello prima della meshatura..."));
+                        int saveResult;
+                        try { saveResult = model.File.Save(savedPath); }
+                        finally { sessionLock.RelockAfterSave(); }
+                        Check(saveResult, "saving the current model before generating the mesh",
+                            "cSapModel.File.Save");
+                        if (!string.Equals(model.GetModelFilename(true), savedPath, StringComparison.OrdinalIgnoreCase))
+                            throw new InvalidOperationException("SAP2000 changed the active model during the pre-mesh save.");
+                        RecordGenerationPhase("save-current-model", generationClock);
                         TraceCancellationStage("snapshot-start");
                         csvSnapshot = ModelCsvSnapshot.Capture(model, dialog.PumpCancellation);
                         TraceCancellationStage("snapshot-complete");
@@ -1009,6 +1157,7 @@ namespace SapQuadTransitionPlugin
                         dialog.SetMeshingAreas(0, contexts.Count);
                         if (!useFastInsertion)
                         {
+                            sessionLock.UnlockForWork();
                             insertionStarted = true;
                             foreach (PreparedMesh prepared in chosen.Meshes)
                             {
@@ -1029,6 +1178,7 @@ namespace SapQuadTransitionPlugin
                                 fastSnapshot = CaptureFastSnapshot(model);
                                 RecordFastPhase("batch-read-snapshot", snapshotClock);
                             }
+                            sessionLock.UnlockForWork();
                             insertionStarted = true;
                             List<MeshOperation> operations = chosen.Meshes.Count == 1
                                 ? new List<MeshOperation> { ApplyMeshFast(model, chosen.Meshes[0].SourceArea,
@@ -1050,7 +1200,8 @@ namespace SapQuadTransitionPlugin
                         RecordGenerationPhase("insert-generated-mesh", generationClock);
                         designTransferLoss = TransferAreaDesignProceduresOnce(model, chosen.Meshes, dialog);
                         RecordGenerationPhase("batch-design-procedure-import", generationClock);
-                        Check(model.SetModelIsLocked(true), "locking the generated preview against edits",
+                        if (sessionLock.Active) sessionLock.RelockAfterWork();
+                        else Check(model.SetModelIsLocked(true), "locking the generated preview against edits",
                             "cSapModel.SetModelIsLocked");
                         previewLockedByPlugin = model.GetModelIsLocked();
                         if (!previewLockedByPlugin)
@@ -1065,6 +1216,7 @@ namespace SapQuadTransitionPlugin
                         dialog.SetApplyBackupInfo(() => backupPath);
                         dialog.SetOnApplied(() =>
                         {
+                            sessionLock.RelockAfterWork();
                             // Apply commits the operation. The CSV snapshot is
                             // needed for rollback only until commit succeeds;
                             // it must not be usable against another SAP model.
@@ -1084,7 +1236,8 @@ namespace SapQuadTransitionPlugin
                                 throw new InvalidOperationException(L(
                                     "The model was unlocked or changed during preview. Apply/Undo was stopped to avoid altering an unexpected model.",
                                     "Il modello è stato sbloccato o cambiato durante l'anteprima. Applica/Annulla è stato fermato per non modificare un modello inatteso."));
-                            Check(model.SetModelIsLocked(false), "unlocking preview for " + mode,
+                            if (sessionLock.Active) sessionLock.UnlockForWork();
+                            else Check(model.SetModelIsLocked(false), "unlocking preview for " + mode,
                                 "cSapModel.SetModelIsLocked");
                             if (model.GetModelIsLocked())
                                 throw new InvalidOperationException("SAP2000 kept the preview locked during " + mode + ".");
@@ -1094,6 +1247,8 @@ namespace SapQuadTransitionPlugin
                         dialog.Complete(combinedQuality, generatedAreaCount, afterMeshing, symmetryNotice, automaticChoice,
                             delegate
                             {
+                                try
+                                {
                                 if (useTabularUndo || designTransferLoss)
                                     csvSnapshot.Restore(model,
                                         results.SelectMany(item => item.Operation.Unchanged
@@ -1107,6 +1262,8 @@ namespace SapQuadTransitionPlugin
                                 RestoreSelection(model, selectedTypes, selectedNames);
                                 model.View.RefreshView(0, false);
                                 csvSnapshot.Delete();
+                                }
+                                finally { sessionLock.RelockAfterWork(); }
                             },
                             delegate
                             {
@@ -1147,6 +1304,8 @@ namespace SapQuadTransitionPlugin
                             },
                             delegate
                             {
+                                try
+                                {
                                 csvSnapshot.Restore(model,
                                     results.SelectMany(item => item.Operation.Unchanged
                                         ? Enumerable.Empty<string>()
@@ -1157,6 +1316,8 @@ namespace SapQuadTransitionPlugin
                                     results.SelectMany(item => item.Operation.GeneratedPoints), useTabularUndo);
                                 RestoreSelection(model, selectedTypes, selectedNames);
                                 model.View.RefreshView(0, false);
+                                }
+                                finally { sessionLock.RelockAfterWork(); }
                             }, csvSnapshot.Path);
                         model.View.RefreshView(0, false);
                         if (automaticChoice != null && !automatedExample)
@@ -1188,7 +1349,7 @@ namespace SapQuadTransitionPlugin
                                     throw new InvalidOperationException("The mesh was not applied with the options window still open.");
                                 Check(model.AreaObj.GetNameList(ref afterApply, ref inspectedAreas), "counting applied areas", "AreaObj.GetNameList");
                                 if (afterApply != beforeApply - appliedOperations)
-                                    throw new InvalidDataException("Apply retained the original SAP area objects: preview " +
+                                    throw new InvalidDataException("Apply retained the original " + HostProductName() + " area objects: preview " +
                                         beforeApply + ", applied " + afterApply + ", active sources " + appliedOperations);
                             }
                             dialog.UndoForAutomation();
@@ -1206,7 +1367,8 @@ namespace SapQuadTransitionPlugin
                         {
                             try
                             {
-                                Check(model.SetModelIsLocked(false), "unlocking failed preview for restoration",
+                                if (sessionLock.Active) sessionLock.UnlockForWork();
+                                else Check(model.SetModelIsLocked(false), "unlocking failed preview for restoration",
                                     "cSapModel.SetModelIsLocked");
                                 previewLockedByPlugin = false;
                             }
@@ -1250,6 +1412,11 @@ namespace SapQuadTransitionPlugin
                         dialog.Fail(exception.Message);
                         continue;
                     }
+                    finally
+                    {
+                        try { sessionLock.RelockAfterWork(); }
+                        finally { dialog.UnblockHostAfterOperation(); }
+                    }
                     if (automatedExample && !leaveCompletedDialog)
                     {
                         if (Environment.GetEnvironmentVariable("SAP_QUAD_ATOMIC_CLOSE_UNAPPLIED") != "1")
@@ -1258,6 +1425,17 @@ namespace SapQuadTransitionPlugin
                     }
                     while (dialog.Visible && !dialog.RetryRequested && dialog.UndoFailure == null)
                     {
+                        if (sessionLock.Active && !dialog.Applied && selectionClock.ElapsedMilliseconds >= 350)
+                            try { sessionLock.CheckReady(); }
+                            catch (Exception error)
+                            {
+                                if (sessionLock.ExternalUnlockObserved)
+                                {
+                                    dialog.ReportModelLockViolation(error.Message);
+                                    dialog.StopUnsafePreview(error);
+                                }
+                                else dialog.SelectionRefreshFailed(error.Message);
+                            }
                         // Apply has already released the transaction snapshot;
                         // keep the quality report visible until the user selects
                         // another area or opens a different SDB, then rearm.
@@ -1279,7 +1457,11 @@ namespace SapQuadTransitionPlugin
                                     }
                                 }
                             }
-                            catch (Exception error) { dialog.SelectionRefreshFailed(error.Message); }
+                            catch (Exception error)
+                            {
+                                if (sessionLock.ExternalUnlockObserved) dialog.ReportModelLockViolation(error.Message);
+                                else dialog.SelectionRefreshFailed(error.Message);
+                            }
                             selectionClock.Restart();
                         }
                         Application.DoEvents();
@@ -1326,7 +1508,8 @@ namespace SapQuadTransitionPlugin
                     {
                         if (previewLockedByPlugin)
                         {
-                            Check(model.SetModelIsLocked(false), "unlocking unapplied preview before restoration",
+                            if (sessionLock.Active) sessionLock.UnlockForWork();
+                            else Check(model.SetModelIsLocked(false), "unlocking unapplied preview before restoration",
                                 "cSapModel.SetModelIsLocked");
                             previewLockedByPlugin = false;
                         }
@@ -1336,6 +1519,7 @@ namespace SapQuadTransitionPlugin
                             UndoAttempts(model, results, fastSnapshot, fastOriginalPoints);
                         RestoreSelection(model, selectedTypes, selectedNames);
                         csvSnapshot.Delete();
+                        sessionLock.RelockAfterWork();
                     }
                     else csvSnapshot.Delete();
                     model.View.RefreshView(0, false);
@@ -1347,11 +1531,20 @@ namespace SapQuadTransitionPlugin
             finally
             {
                 interactiveDialog = null;
-                if (sapWindow != IntPtr.Zero)
+                try { sessionLock.Dispose(); }
+                finally
                 {
-                    SetActiveWindow(sapWindow);
-                    SetForegroundWindow(sapWindow);
-                    Application.DoEvents();
+                    if (sapWindow != IntPtr.Zero)
+                    {
+                        // The interactive plugin callback has already returned.
+                        // Never leave SAP2000 disabled after our modeless dialog
+                        // closes, even if a lock-cleanup OAPI call failed.
+                        if (sessionLock.Active && !IsWindowEnabled(sapWindow))
+                            EnableWindow(sapWindow, true);
+                        SetActiveWindow(sapWindow);
+                        SetForegroundWindow(sapWindow);
+                        Application.DoEvents();
+                    }
                 }
             }
         }
@@ -1480,7 +1673,7 @@ namespace SapQuadTransitionPlugin
                     HarmonizeRegularGridSeams(contexts);
                 if (dialog.GenerateHoles)
                     AssignOpeningBoundaries(model, contexts, dialog.OpeningGroup,
-                        dialog.GenerateCircularHoles);
+                        dialog.GenerateCircularHoles, selectedFrames);
                 ValidateCircularHoleConstraints(contexts);
                 if (activeAxis != null && contexts.Count > 1)
                     ValidateReflectedConstraints(contexts, activeAxis);
@@ -1906,24 +2099,47 @@ namespace SapQuadTransitionPlugin
         }
 
         private static void AssignOpeningBoundaries(cSapModel model, List<AreaContext> contexts, string groupName,
-            bool allowEmpty)
+            bool allowEmpty, string[] selectedFrames)
         {
             if (string.IsNullOrEmpty(groupName))
                 throw new InvalidOperationException("Select an opening-boundary group.");
             GroupObjects members = ReadGroupObjects(model, groupName);
+            var selected = new HashSet<string>(selectedFrames, StringComparer.OrdinalIgnoreCase);
+            var openingSegments = new List<Tuple<double[], double[]>>();
+            foreach (string name in members.Frames.Where(selected.Contains))
+            {
+                string first = "", second = "";
+                Check(model.FrameObj.GetPoints(name, ref first, ref second),
+                    "reading opening frame " + name, "FrameObj.GetPoints");
+                openingSegments.Add(Tuple.Create(Coordinate(model, first), Coordinate(model, second)));
+            }
             int eligible = 0;
             foreach (AreaContext context in contexts)
                 foreach (FrameConstraint frame in context.FrameConstraints)
                 {
-                    frame.CanBoundOpening = frame.Automatic
-                        ? frame.SourceContext != null && members.Areas.Contains(frame.SourceContext.Name)
-                        : members.Frames.Contains(frame.Name);
+                    // Splitting overlapping selected frames retains just one
+                    // coincident subsegment. Its name can belong to a frame
+                    // outside the opening group, even when another selected
+                    // frame in the group covers exactly that same subsegment.
+                    // Use the union of grouped frame geometry, not whichever
+                    // frame name happened to survive deduplication.
+                    frame.CanBoundOpening =
+                        frame.Automatic && frame.SourceContext != null && members.Areas.Contains(frame.SourceContext.Name) ||
+                        !frame.Automatic && members.Frames.Contains(frame.Name) ||
+                        openingSegments.Any(segment => OpeningContainsFrame(segment, frame));
                     if (frame.CanBoundOpening) eligible++;
                 }
             if (eligible == 0 && !allowEmpty)
                 throw new InvalidOperationException("The selected opening-boundary group contains no frame or shell-edge constraints in the selected areas.");
             if (eligible == 0)
                 Console.WriteLine("mesh-opening-boundaries=none circular-holes-only=true");
+        }
+
+        private static bool OpeningContainsFrame(Tuple<double[], double[]> opening, FrameConstraint frame)
+        {
+            double firstPosition, secondPosition;
+            return OnSegment(frame.First, opening.Item1, opening.Item2, out firstPosition) &&
+                OnSegment(frame.Second, opening.Item1, opening.Item2, out secondPosition);
         }
 
         private static void AssignCircularHoles(cSapModel model, List<AreaContext> contexts, string[] pointNames, double diameter)
@@ -3489,7 +3705,7 @@ namespace SapQuadTransitionPlugin
                     double[] coordinate = corner >= 0 ? corners[corner] : edge != null ? edge.Coordinates :
                         inside == null ? null : inside.Coordinates;
                     if (coordinate == null)
-                        throw new InvalidDataException("Selected SAP joint is missing from its area context: " + selected);
+                        throw new InvalidDataException("Selected " + HostProductName() + " joint is missing from its area context: " + selected);
                     WritePointRow(writer, "EXPLICIT_POINT", 0, selected, 0, coordinate);
                 }
                 foreach (HoleDefinition hole in holes)
@@ -5982,7 +6198,7 @@ namespace SapQuadTransitionPlugin
                             return OnSegment(point, context.Corners[edge],
                                 context.Corners[(edge + 1) % context.Corners.Length], out t);
                         }))))
-                        throw new InvalidDataException("Cannot mesh: original SAP joints " + existing.Name + " and " +
+                        throw new InvalidDataException("Cannot mesh: original " + HostProductName() + " joints " + existing.Name + " and " +
                             name + " coincide at " + Position(point) +
                             " on the selected constraints or area boundaries. Separate or merge them before meshing; " +
                             "no SAP2000 objects were modified.");
@@ -5995,7 +6211,7 @@ namespace SapQuadTransitionPlugin
                 if (existing == null) return;
                 Trace(area, point, existing.Name, "blocked-overlap-original");
                 throw new InvalidDataException("Area " + area + " would create a new joint at " +
-                    "existing SAP joint " + existing.Name + " (" + Position(point) + "). " +
+                    "existing " + HostProductName() + " joint " + existing.Name + " (" + Position(point) + "). " +
                     "Joint creation was refused; check whether the areas share a connected edge.");
             }
             public void ValidateNewJointPositions(IEnumerable<PreparedMesh> prepared)
@@ -7315,6 +7531,8 @@ namespace SapQuadTransitionPlugin
                 if (active != null) active.Stop();
             }
             private bool checkingUpdates;
+            private bool modelLockWarningShown;
+            private bool requiresSavedModel;
             private bool updateCheckSucceeded;
             private bool updateBlinkOn;
             private string availableVersion;
@@ -7357,6 +7575,34 @@ namespace SapQuadTransitionPlugin
             public Exception UndoFailure { get; private set; }
             public bool CanRefreshSelection { get { return !working &&
                 (Applied || qualityReport == null && undoAction == null); } }
+            private string SaveModelFirstText()
+            {
+                return L("Save this new model in " + HostProductName() + " before generating a mesh with FEMesh.",
+                    "Salvare questo nuovo modello in " + HostProductName() + " prima di generare la mesh con FEMesh.");
+            }
+            public void SetRequiresSavedModel(bool required)
+            {
+                if (requiresSavedModel == required) return;
+                requiresSavedModel = required;
+                UpdateOptionState();
+                if (required)
+                {
+                    generate.Enabled = details.Enabled = undo.Enabled = false;
+                    status.Text = SaveModelFirstText();
+                }
+                else if (!working && qualityReport == null)
+                    status.Text = hasSelectedAreas ? L("Ready. Selection updated.", "Pronto. Selezione aggiornata.") :
+                        L("Select at least one area in " + HostProductName() + "; this window updates automatically.",
+                          "Selezionare almeno un'area in " + HostProductName() + ": questa finestra si aggiorna automaticamente.");
+            }
+            public void ShowNeverSavedModelWarning()
+            {
+                MessageBox.Show(this, L("This model has never been saved. Save it in " + HostProductName() +
+                    " before meshing with FEMesh. The options and help remain available in the meantime.",
+                    "Questo modello non è mai stato salvato. Salvarlo in " + HostProductName() +
+                    " prima di procedere con la meshatura tramite FEMesh. Opzioni e guida restano consultabili."),
+                    WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
             public string LengthUnit { get { return units; } }
             public void ChangeLengthUnit(string nextUnit)
             {
@@ -7429,15 +7675,17 @@ namespace SapQuadTransitionPlugin
                     ApplyPluginIcon(choice);
                     choice.Controls.Add(new Label {
                         Left = 18, Top = 15, Width = 474, Height = 85,
-                        Text = L("The automatic numbered backup is OFF. Before Generate, we recommend " +
-                            "backing up the last saved model file. Unsaved model changes will not be in that file.",
-                            "Il backup numerato automatico è DISATTIVATO. Prima di Genera consigliamo " +
-                            "di copiare l'ultimo file del modello salvato. Le modifiche non salvate non saranno nel backup.")
+                        Text = L("The numbered backup is OFF. Generate will save the current model over its SDB/BDB " +
+                            "before meshing. Enable the backup to keep a copy of the previously saved file; " +
+                            "it will not contain unsaved edits.",
+                            "Il backup numerato è DISATTIVATO. Genera salverà il modello corrente sul suo SDB/BDB " +
+                            "prima della mesh. Attivare il backup per conservare il file salvato in precedenza; " +
+                            "non conterrà le modifiche non ancora salvate.")
                     });
                     var enableBackup = new CheckBox {
                         Left = 18, Top = 107, Width = 474, Height = 27,
                         Text = L("Enable backup in Transfer options for this generation (recommended)",
-                            "Attiva il backup in Opzioni trasferimento per questa generazione (consigliato)")
+                            "Attiva il backup in Opzioni di trasferimento per questa generazione (consigliato)")
                     };
                     choice.Controls.Add(enableBackup);
                     var suppress = new CheckBox {
@@ -7575,7 +7823,7 @@ namespace SapQuadTransitionPlugin
                 if (!RetryRequested || working) return;
                 RetryRequested = false;
                 UpdateOptionState();
-                generate.Enabled = hasSelectedAreas;
+                generate.Enabled = hasSelectedAreas && !requiresSavedModel;
             }
             private void ClearCompletedPreview()
             {
@@ -7652,7 +7900,8 @@ namespace SapQuadTransitionPlugin
                 SetSelectionCounts(areas, quads, triangles, polygons, frames, links, joints);
                 UpdateOptionState();
                 if (RetryRequested) generate.Enabled = false;
-                status.Text = hasSelectedAreas ? L("Ready. Selection updated.", "Pronto. Selezione aggiornata.") :
+                status.Text = requiresSavedModel ? SaveModelFirstText() :
+                    hasSelectedAreas ? L("Ready. Selection updated.", "Pronto. Selezione aggiornata.") :
                     L("Select at least one area in " + HostProductName() + "; this window updates automatically.",
                       "Selezionare almeno un'area in " + HostProductName() + ": questa finestra si aggiorna automaticamente.");
             }
@@ -7678,6 +7927,54 @@ namespace SapQuadTransitionPlugin
                 status.Text = L("Unable to read the current selection; retrying...",
                     "Impossibile leggere la selezione corrente; nuovo tentativo...");
                 measurementToolTip.SetToolTip(status, diagnostic);
+            }
+            public void ReportModelLockViolation(string diagnostic)
+            {
+                generate.Enabled = false;
+                status.Text = L("The SAP2000 model was unlocked while FEMesh was open. Close FEMesh and inspect the model before continuing.",
+                    "Il modello SAP2000 è stato sbloccato mentre FEMesh era aperto. Chiudere FEMesh e verificare il modello prima di continuare.");
+                measurementToolTip.SetToolTip(status, diagnostic);
+                if (modelLockWarningShown) return;
+                // MessageBox.Show(this) only disables the FEMesh window: SAP's
+                // modeless host window runs on another UI thread and remains
+                // clickable. Disable every currently enabled host-owned top-
+                // level window, including any SAP unlock confirmation, for the
+                // entire lifetime of this warning; restore only our changes.
+                var disabled = new List<IntPtr>();
+                uint hostPid = (uint)Process.GetCurrentProcess().Id;
+                IntPtr pluginWindow = Handle;
+                try
+                {
+                    bool blocked = EnumWindows(delegate(IntPtr window, IntPtr unused)
+                    {
+                        uint pid;
+                        GetWindowThreadProcessId(window, out pid);
+                        if (pid != hostPid || window == pluginWindow || !IsWindowVisible(window) ||
+                            !IsWindowEnabled(window)) return true;
+                        EnableWindow(window, false);
+                        if (IsWindowEnabled(window)) return false;
+                        disabled.Add(window);
+                        return true;
+                    }, IntPtr.Zero);
+                    if (!blocked || (viewportWindow != IntPtr.Zero && IsWindowEnabled(viewportWindow)))
+                        throw new InvalidOperationException("Cannot block SAP2000 while displaying the model-lock warning.");
+                    modelLockWarningShown = true;
+                    MessageBox.Show(this, status.Text, WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                finally
+                {
+                    foreach (IntPtr window in disabled)
+                    {
+                        uint pid;
+                        if (IsWindow(window) && GetWindowThreadProcessId(window, out pid) != 0 &&
+                            pid == hostPid && !IsWindowEnabled(window)) EnableWindow(window, true);
+                    }
+                }
+            }
+            public void StopUnsafePreview(Exception error)
+            {
+                UndoFailure = error;
+                generate.Enabled = undo.Enabled = false;
             }
             public void SetGeneratedInventory(MeshInventory inventory)
             {
@@ -7918,7 +8215,7 @@ namespace SapQuadTransitionPlugin
                 {
                     // Do not begin a second transaction while the previous
                     // snapshot/preview frame is still being released.
-                    if (RetryRequested) return;
+                    if (RetryRequested || requiresSavedModel) return;
                     if (qualityReport != null)
                     {
                         if (!CurrentModelMatchesPreview())
@@ -8416,6 +8713,13 @@ namespace SapQuadTransitionPlugin
             {
                 createdElements.Text = L("Created elements: ", "Elementi creati: ") + generatedElementCount;
             }
+            public void BlockHostForOperation()
+            {
+                LockViewportForCommit();
+                if (viewportWindow != IntPtr.Zero && IsWindowEnabled(viewportWindow))
+                    throw new InvalidOperationException("Cannot prevent edits in SAP2000 during the mesh operation.");
+            }
+            public void UnblockHostAfterOperation() { UnlockViewportAfterCommit(); }
             private static bool TryGetNewRelease(string json, out string version, out string releaseUrl, out string downloadUrl)
             {
                 version = releaseUrl = downloadUrl = null;
@@ -8658,7 +8962,10 @@ namespace SapQuadTransitionPlugin
                 if (disposing)
                 {
                     StopCancellationController();
-                    if (viewportWasDisabled) PauseViewportInteraction();
+                    // In interactive mode callback.Finish has already released
+                    // SAP's modal command loop: disabling the host here would
+                    // leave SAP2000 unresponsive after FEMesh closes.
+                    if (viewportWasDisabled && !callbackReleasedInSap()) PauseViewportInteraction();
                     elapsedTimer.Dispose(); updateBlinkTimer.Dispose(); updateNoticeBoldFont.Dispose(); measurementToolTip.Dispose();
                 }
                 base.Dispose(disposing);
@@ -8708,24 +9015,24 @@ namespace SapQuadTransitionPlugin
                 measurementToolTip.SetToolTip(holeDiameter, tip);
                 fastMode.Text = L("Use interactive database to generate elements in SAP2000/CSiBridge (fast mode)",
                     "Usa il database interattivo per generare elementi in SAP2000/CSiBridge (modalità veloce)");
-                createBackupDescription.Text = L("Create a backup copy of the saved model before each mesh generation. " +
-                    "The backup contains all information saved before generating the mesh. Changes not yet " +
-                    "saved before mesh generation will not be included in the backup.",
-                    "Crea una copia di backup del modello salvato prima di ogni generazione di mesh. " +
-                    "La copia di backup quindi contiene tutte le informazioni già salvate prima della " +
-                    "generazione della mesh. Le modifiche non ancora salvate prima della generazione di mesh, " +
-                     "non saranno presenti nella copia di backup.");
+                createBackupDescription.Text = L("Before every Generate, copy the previously saved SDB/BDB to a numbered backup, " +
+                    "then save the current model to its SDB/BDB and capture the Undo snapshot. " +
+                    "The backup does not include edits that were still unsaved before Generate.",
+                    "Prima di ogni Genera, copia l'SDB/BDB già salvato nel backup numerato, " +
+                    "poi salva il modello corrente nello stesso SDB/BDB e acquisisce lo snapshot per Annulla. " +
+                    "Il backup non include le modifiche ancora non salvate prima di Genera.");
                 createBackup.AccessibleName = createBackupDescription.Text;
-                measurementToolTip.SetToolTip(createBackup, L("Copies the last saved model file before each generation. Save unsaved changes in " + HostProductName() + " first.",
-                    "Copia l'ultimo file del modello salvato prima di ogni generazione. Salvare prima in " + HostProductName() + " le modifiche non salvate."));
+                measurementToolTip.SetToolTip(createBackup, L("Copies the previous saved file before Generate saves the current model, including its unsaved edits.",
+                    "Copia il file salvato in precedenza prima che Genera salvi il modello corrente, comprese le modifiche ancora non salvate."));
                 measurementToolTip.SetToolTip(createBackupDescription, measurementToolTip.GetToolTip(createBackup));
                 ApplySelectionSummary();
                 UpdateCreatedElements();
                 generate.Text = qualityReport != null && !Applied ? L("Apply", "Applica") : L("Generate", "Genera");
                 undo.Text = L("Undo mesh", "Annulla mesh");
                 details.Text = L("Mesh quality", "Qualita della mesh");
-                if (!working && qualityReport == null && !RetryRequested) status.Text = L("Ready.", "Pronto.");
-                if (!hasSelectedAreas) status.Text = L("Select at least one area in " + HostProductName() + "; this window updates automatically.",
+                if (!working && qualityReport == null && !RetryRequested)
+                    status.Text = requiresSavedModel ? SaveModelFirstText() : L("Ready.", "Pronto.");
+                if (!hasSelectedAreas && !requiresSavedModel) status.Text = L("Select at least one area in " + HostProductName() + "; this window updates automatically.",
                     "Selezionare almeno un'area in " + HostProductName() + ": questa finestra si aggiorna automaticamente.");
                 UpdateNoticeText();
                 foreach (Control control in Controls)
@@ -8759,7 +9066,7 @@ namespace SapQuadTransitionPlugin
                     createBackupDescription.Enabled = false;
                     return;
                 }
-                if (qualityReport == null) generate.Enabled = true;
+                if (qualityReport == null) generate.Enabled = !requiresSavedModel;
                 symmetric.Enabled = hasSymmetryAxes;
                 strictMaximumSize.Enabled = edgeTolerance.Enabled = false;
                 symmetryAxis.Enabled = symmetric.Checked && hasSymmetryAxes;

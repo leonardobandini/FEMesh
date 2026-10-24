@@ -1,5 +1,14 @@
 # FEMesh — versione distribuita
 
+## 2.0.66 — candidata locale, non pubblicata
+
+- Corretto il riconoscimento dei bordi di un'apertura quando frame del gruppo si sovrappongono a frame selezionati non appartenenti al gruppo: i tratti comuni mantengono l'appartenenza geometrica al contorno dopo la suddivisione.
+- Durante ogni Genera, backup numerato opzionale prima del salvataggio obbligatorio dello stato corrente; lo snapshot di Annulla segue il salvataggio. Documentati gli effetti su Applica e Annulla mesh.
+- Un modello mai salvato mostra un avviso all'apertura del plugin: guida e schede restano consultabili ma le operazioni sono disattivate finché il modello non viene salvato nell'host.
+- L'installer verifica la versione del Visual C++ Redistributable x64 e, se necessario, scarica da Microsoft il prerequisito firmato e ne avvia il setup interattivo prima di installare FEMesh.
+- Nuovo installer grafico bilingue con lingua Windows rilevata automaticamente, selezione manuale IT/EN e stato delle fasi fino alla registrazione nei menu SAP2000/CSiBridge.
+- Il modello resta bloccato mentre FEMesh è aperto; le modifiche del plugin sbloccano temporaneamente il modello con la finestra SAP2000/CSiBridge non interattiva. Corretta la riabilitazione della finestra dell'host alla chiusura.
+
 ## 2.0.65 — 23 ottobre 2026
 
 - Ripristinato il controllo aggiornamenti della V2, con la medesima UI e gli stessi messaggi; consulta esclusivamente l'ultima release stabile pubblica di FEMesh.

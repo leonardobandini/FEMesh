@@ -5,12 +5,22 @@ FEMesh è un plugin open source per generare mesh di elementi shell prevalenteme
 ## Distribuzione corrente
 
 - [Ultima release stabile FEMesh](https://github.com/leonardobandini/FEMesh/releases/latest) · [ZIP d'installazione a nome stabile](https://github.com/leonardobandini/FEMesh/releases/latest/download/FEMesh-latest.zip) · [ZIP, sorgenti e checksum](packaging/SOURCE.template.md).
-- Prerequisito esterno: installa il [Microsoft Visual C++ Redistributable x64 ufficiale](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist), versione **14.42.34226.3 o successiva compatibile**. Le DLL runtime Visual C++ Microsoft non sono incluse nello ZIP FEMesh.
-- Per installare: dopo il prerequisito, estrai lo ZIP, chiudi SAP2000 e CSiBridge, esegui `install_plugin.cmd` e riapri l'host.
+- Prerequisito esterno: [Microsoft Visual C++ Redistributable x64](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist), versione **14.42.34226.3 o successiva compatibile**. Dalla candidata locale 2.0.66 l'installer, se manca, lo scarica dal sito Microsoft, verifica la firma e avvia il setup ufficiale interattivo prima di installare FEMesh. La release pubblica 2.0.65 richiede ancora l'installazione manuale. Nessuna DLL runtime Visual C++ Microsoft è inclusa nello ZIP FEMesh.
+- Per installare la candidata 2.0.66: estrai lo ZIP e avvia **`FEMeshSetup.exe`** (oppure `install_plugin.cmd`, che apre la stessa finestra). L'installer grafico mostra licenze, sorgenti e tutte le fasi in italiano o inglese; rileva la lingua di Windows e permette di cambiarla manualmente. Prima di sostituire la versione precedente e registrarsi nei menu di SAP2000/CSiBridge, richiede in modo bloccante la chiusura delle eventuali sessioni aperte, senza chiudere o salvare modelli. Se richiesto, completa il setup Microsoft e l'eventuale riavvio di Windows; infine riapri l'host. Lo ZIP pubblico 2.0.65 mantiene la precedente procedura tramite `install_plugin.cmd`.
 - [Guida FEMesh in italiano](docs/help-gmsh-v2/index-it.html) · [English help](docs/help-gmsh-v2/index-en.html).
 - [Build dai sorgenti](packaging/SOURCE_BUILD.md) · [licenze e termini](LICENSE-APPLICATION.md) · [componenti di terzi](THIRD_PARTY_NOTICES.md).
 
 La versione **2.0.65** include `SOURCE.md` con i riferimenti ai sorgenti corrispondenti della stessa release. La verifica di ogni modello ingegneristico risultante resta a carico dell'utilizzatore.
+
+La **2.0.66** è una candidata locale in verifica: corregge le aperture il cui contorno coincide con frame selezionati esterni al gruppo. Non è ancora una release pubblicata.
+
+## Salvataggio e ripristino della mesh
+
+Con il modello già salvato, FEMesh lo blocca mentre la finestra del plugin è aperta. A **ogni Genera**, se l'opzione backup è attiva, copia prima l'SDB/BDB precedentemente salvato in un file numerato. Poi **salva sempre il modello corrente nel file attivo**, anche con backup disattivato, e acquisisce lo snapshot temporaneo per Annulla mesh. Il backup non include le modifiche rimaste in memoria prima di Genera: sono invece presenti nel successivo salvataggio automatico.
+
+Se FEMesh viene aperto su un modello nuovo mai salvato, avvisa l'utente e lascia consultabili schede e guida, ma disabilita i comandi di meshatura. Dopo il primo salvataggio in SAP2000/CSiBridge rilegge il modello e, se è selezionata un'area, rende disponibile Genera.
+
+**Applica** mantiene la mesh nel modello in memoria senza salvare la mesh sul file: per conservarla occorre un salvataggio esplicito nell'host. **Annulla mesh** ripristina lo stato acquisito subito dopo il salvataggio di Genera, senza un nuovo salvataggio. Un successivo Genera ripete backup opzionale, salvataggio e snapshot. Per tornare allo stato su disco *precedente* a Genera occorre la copia numerata, se creata.
 
 Il codice originale FEMesh è **GPL-2.0-or-later**; Gmsh 4.15.2 è **GPL-2.0-or-later** dei suoi titolari. Per il backend binario combinato con OpenSSL 3 (Apache-2.0) viene scelta **GPLv3** secondo le clausole «or later». Le licenze degli altri componenti e l'eccezione limitata di Gmsh restano invariate. SAP2000, CSiBridge e `CSiAPIv1.dll` non sono inclusi nel pacchetto.
 

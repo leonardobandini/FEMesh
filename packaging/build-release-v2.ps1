@@ -29,11 +29,14 @@ New-Item -ItemType Directory -Path $build | Out-Null
 try {
     $pluginBuild = Join-Path $build 'plugin'
     $installerBuild = Join-Path $build 'installer'
+    $setupBuild = Join-Path $build 'setup'
     # Avoid embedding this machine's absolute PDB path in distributed binaries.
     & dotnet build (Join-Path $root 'SapQuadTransitionPlugin\SapGmshReplacement.csproj') -c Release --no-incremental -p:DebugType=none -p:DebugSymbols=false -o $pluginBuild
     if ($LASTEXITCODE -ne 0) { throw 'V2 replacement plugin build failed.' }
     & dotnet build (Join-Path $root 'packaging\SQMV2Installer.csproj') -c Release --no-incremental -p:DebugType=none -p:DebugSymbols=false -o $installerBuild
     if ($LASTEXITCODE -ne 0) { throw 'V2 installer build failed.' }
+    & dotnet build (Join-Path $root 'packaging\FEMeshSetup.csproj') -c Release --no-incremental -p:DebugType=none -p:DebugSymbols=false -o $setupBuild
+    if ($LASTEXITCODE -ne 0) { throw 'V2 graphical installer build failed.' }
     if (-not $SkipBackendBuild) {
         & python -m PyInstaller --noconfirm --clean --distpath (Join-Path $PSScriptRoot 'dist-v2') --workpath (Join-Path $PSScriptRoot 'build-v2') (Join-Path $PSScriptRoot 'SapGmshBackend.spec')
         if ($LASTEXITCODE -ne 0) { throw 'Frozen Gmsh V2 backend build failed.' }
@@ -50,6 +53,7 @@ try {
         Copy-Item -LiteralPath (Join-Path $pluginBuild $name) -Destination $stage
     }
     Copy-Item -LiteralPath (Join-Path $installerBuild 'SQMPluginInstaller.exe') -Destination $stage
+    Copy-Item -LiteralPath (Join-Path $setupBuild 'FEMeshSetup.exe') -Destination $stage
     foreach ($name in @('install_plugin.cmd','uninstall_plugin.cmd','README-GMSH-V2.md')) {
         Copy-Item -LiteralPath (Join-Path $root "SapQuadTransitionPlugin\$name") -Destination $stage
     }
@@ -57,6 +61,7 @@ try {
     foreach ($name in @('LICENSE','GPL-3.0.txt','LICENSE-APPLICATION.md','SAP2000-LINKING-EXCEPTION.md','THIRD_PARTY_NOTICES.md')) {
         Copy-Item -LiteralPath (Join-Path $root $name) -Destination $stage
     }
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'native-gmsh-sources.json') -Destination (Join-Path $stage 'NATIVE-SOURCES.json')
     $sourceGuide = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'SOURCE.template.md')).Replace('{VERSION}', [string]$version)
     [IO.File]::WriteAllText((Join-Path $stage 'SOURCE.md'), $sourceGuide, [Text.Encoding]::UTF8)
     if ($sourceGuide -notmatch [regex]::Escape("https://github.com/leonardobandini/FEMesh/releases/tag/v$version")) {
@@ -71,6 +76,14 @@ try {
     }
     Copy-Item -LiteralPath (Join-Path $pluginBuild 'img') -Destination $stage -Recurse
     Copy-Item -LiteralPath $backend -Destination (Join-Path $stage 'mesher') -Recurse
+    $backendExe = Join-Path $stage 'mesher\SapQuadMesherBackend.exe'
+    if ((Get-Item $backendExe).VersionInfo.FileVersion -ne "$version.0") {
+        throw "Wrong backend file version: $((Get-Item $backendExe).VersionInfo.FileVersion)"
+    }
+    $reportedBackendVersion = & $backendExe --version
+    if ($LASTEXITCODE -ne 0 -or $reportedBackendVersion -ne "FEMesh backend $version") {
+        throw "Wrong backend-reported version: $reportedBackendVersion"
+    }
     $licenses = Join-Path $stage 'licenses'
     New-Item -ItemType Directory -Path $licenses | Out-Null
     $gmshLicense = Join-Path $PSScriptRoot 'cache\gmsh-4.15.2-source\LICENSE.txt'
@@ -78,8 +91,14 @@ try {
     Copy-Item -LiteralPath $gmshLicense -Destination (Join-Path $licenses 'GMSH-LICENSE.txt')
     $pythonRoot = & python -c 'import sys; print(sys.base_prefix)'
     Copy-Item -LiteralPath (Join-Path $pythonRoot 'LICENSE.txt') -Destination (Join-Path $licenses 'PYTHON-LICENSE.txt')
+    & python (Join-Path $PSScriptRoot 'verify-native-sources.py') $stage
+    if ($LASTEXITCODE -ne 0) { throw 'Pinned native Gmsh dependency sources or licenses are missing.' }
     $fileVersion = (Get-Item (Join-Path $stage 'SapQuadTransitionPlugin.dll')).VersionInfo.FileVersion
     if ($fileVersion -ne "$version.0") { throw "Wrong V2 DLL version: $fileVersion" }
+    foreach ($installerName in @('SQMPluginInstaller.exe','FEMeshSetup.exe')) {
+        $installerVersion = (Get-Item (Join-Path $stage $installerName)).VersionInfo.FileVersion
+        if ($installerVersion -ne "$version.0") { throw "Wrong $installerName version: $installerVersion" }
+    }
     & (Join-Path $stage 'SQMPluginInstaller.exe') verify $stage
     if ($LASTEXITCODE -ne 0) { throw 'Standalone installer verification failed.' }
     & python (Join-Path $root 'tools\VerifyGmshV2Help.py')
@@ -125,7 +144,8 @@ try {
         elseif ($version -eq '2.0.62') { '2.0.61' }
         elseif ($version -eq '2.0.63') { '2.0.62' }
         elseif ($version -eq '2.0.64') { '2.0.63' }
-        elseif ($version -eq '2.0.65') { '2.0.64' } else { '2.0.13' }
+        elseif ($version -eq '2.0.65') { '2.0.64' }
+        elseif ($version -eq '2.0.66') { '2.0.65' } else { '2.0.13' }
     $oldV2 = Join-Path $artifacts "Sap2000QuadMesher-$previous"
     if (Test-Path -LiteralPath (Join-Path $oldV2 'SQMPluginInstaller.exe') -PathType Leaf) {
         $trialV2 = Join-Path $build 'v2-upgrade-trial'

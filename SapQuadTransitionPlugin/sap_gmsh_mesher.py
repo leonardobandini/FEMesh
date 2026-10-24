@@ -141,7 +141,7 @@ def check_settings(settings, max_size):
                              else "Optimizer iterations must be between 1 and 100")
     extras = settings.get("options", {})
     if int(extras.get("Mesh.SubdivisionAlgorithm", 0)) == 2:
-        raise ValueError("All-hexahedra subdivision requires a 3D volume; selected SAP shells are 2D")
+        raise ValueError("All-hexahedra subdivision requires a 3D volume; selected SAP2000/CSiBridge shells are 2D")
     if settings.get("preserveSelectedEdges") and int(extras.get("Mesh.SubdivisionAlgorithm", 0)) == 1:
         raise ValueError("All-quad subdivision bisects prescribed SAP2000 edges; disable it when preserving selected edges")
     if float(extras.get("Mesh.MeshSizeMin", 0)) > max_size:
@@ -784,7 +784,7 @@ def mesh_areas(areas, max_size, settings):
             center = geo.getCenterOfMass(2, face)
             matching = [index for index in claimed_by if inside_source_area(center, geometry[index][0][0])]
             if len(matching) != 1:
-                raise ValueError("Overlapping SAP areas cannot both own the same Gmsh surface")
+                raise ValueError("Overlapping SAP2000/CSiBridge areas cannot both own the same Gmsh surface")
             for index in claimed_by - set(matching):
                 faces_by_area[index].remove(face)
         if any(not faces for faces in faces_by_area):
@@ -884,7 +884,7 @@ def mesh_areas(areas, max_size, settings):
             for tag in owners:
                 curves = gmsh.model.getBoundary([(2, tag)], combined=False, oriented=False)
                 if len(curves) not in (3, 4):
-                    raise ValueError("Manual transfinite requires 3- or 4-sided patches; partition the selected SAP area first")
+                    raise ValueError("Manual transfinite requires 3- or 4-sided patches; partition the selected SAP2000/CSiBridge area first")
                 gmsh.model.mesh.setTransfiniteSurface(tag, structured.get("arrangement", "Left"))
         transition_curves = set()
         transition_size = max_size
@@ -950,7 +950,7 @@ def mesh_areas(areas, max_size, settings):
                 gmsh.model.mesh.field.setNumbers(distance, "PointsList", sorted(selected_geom_tags))
             if target == "frames" and not frame_curves or target == "joints" and not selected_geom_tags or \
                     target == "both" and not (frame_curves or selected_geom_tags):
-                raise ValueError("Selected frame/joint targets for the Gmsh size field were not found in the selected SAP areas")
+                raise ValueError("Selected frame/joint targets for the Gmsh size field were not found in the selected SAP2000/CSiBridge areas")
             threshold = gmsh.model.mesh.field.add("Threshold")
             for name, value in (("InField", distance), ("SizeMin", field["sizeNear"]),
                                 ("SizeMax", field["sizeFar"]), ("DistMin", field["distanceNear"]),
@@ -988,7 +988,7 @@ def mesh_areas(areas, max_size, settings):
                     elements.extend(tuple(int(tag) for tag in block[i:i + count])
                                     for i in range(0, len(block), count))
             if not elements:
-                raise ValueError("Gmsh produced no 2D shell elements for a selected SAP area")
+                raise ValueError("Gmsh produced no 2D shell elements for a selected SAP2000/CSiBridge area")
             if symmetry:
                 elements = reflect_elements_exactly(nodes, elements, corners, symmetry)
             if settings.get("oGrid"):
@@ -1021,7 +1021,7 @@ def main(boundary, output, max_size, settings_path):
         outputs = [(str(Path(boundary).parent / item["boundary"]),
                     str(Path(output) / item["mesh"])) for item in manifest["areas"]]
         if len(outputs) == 0 or len(outputs) != len({mesh for _, mesh in outputs}):
-            raise ValueError("Each selected SAP area needs a distinct output mesh")
+            raise ValueError("Each selected SAP2000/CSiBridge area needs a distinct output mesh")
         if not Path(output).is_dir():
             raise FileNotFoundError("Batch mesh output directory is missing: " + str(output))
         mesh_areas(outputs, max_size, settings)

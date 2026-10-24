@@ -25,9 +25,14 @@ class Links(HTMLParser):
 
 
 def main():
+    for diagram in HELP.rglob('*.svg'):
+        if re.search(r'\bSAP\b(?!2000)', diagram.read_text(encoding='utf-8-sig')):
+            raise ValueError('Visible diagram uses SAP instead of SAP2000: ' + diagram.name)
     current = json.loads((HELP / 'assets' / 'new-ui-examples.json').read_text(encoding='utf-8'))
     if len(current) != 23 or len({item['id'] for item in current}) != 23:
         raise ValueError('Missing or duplicate SAP-verified New UI example')
+    if any('runFolder' in item for item in current):
+        raise ValueError('Public help examples must not expose local run folders')
     for item in current:
         options = item['settings']
         if (options.get('previewMode') is not True or options.get('algorithm') == 9 or
@@ -75,7 +80,7 @@ def main():
             raise ValueError(name + ': incomplete or stale current-interface help')
         language = 'en' if name.endswith('-en.html') else 'it'
         if ('<section id="json">' in text or 'interface-v244-' in text or
-                re.search(r'SAP2000(?!/CSiBridge)', text) or
+                re.search(r'\bSAP\b(?!2000)', text) or
                 re.search(r'new-ui-[^"<> ]+-(?:options|additional|transfer|symmetry|json)\.png', text)):
             raise ValueError(name + ': obsolete host wording or interface image is still displayed')
         for tab in ('gmsh', 'additional', 'transfer'):
@@ -87,7 +92,7 @@ def main():
                      int.from_bytes(raw[20:24], 'big') < 760 or
                      hashlib.sha256(raw).digest() == hashlib.sha256(old_image.read_bytes()).digest()):
                 raise ValueError(name + ': missing or invalid current-interface screenshot ' + tab)
-        for marker in ((('FEMesh version · 2.0.65' if name.endswith('-en.html') else 'Versione FEMesh · 2.0.65'), 'leonardo@csi-italia.eu', 'Mesh.MeshSizeMin', 'Mesh.Smoothing', 'Mesh.AlgorithmSwitchOnFailure',
+        for marker in ((('FEMesh version · 2.0.66' if name.endswith('-en.html') else 'Versione FEMesh · 2.0.66'), 'leonardo@csi-italia.eu', 'Mesh.MeshSizeMin', 'Mesh.Smoothing', 'Mesh.AlgorithmSwitchOnFailure',
                           'https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist',
                           'https://gmsh.info/', 'C. Geuzaine', 'J.-F. Remacle',
                           'Gmsh attribution.' if name.endswith('-en.html') else 'Attribuzione Gmsh.',

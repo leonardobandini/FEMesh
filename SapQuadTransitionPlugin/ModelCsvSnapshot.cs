@@ -463,7 +463,7 @@ namespace SapQuadTransitionPlugin
                 { cPlugin.TraceCancellationStage("blank-fields-diagnostic-failed " + key + " " + error.GetType().Name); }
             }
             if (fields == null || fields.Length == 0 || data == null || data.Length != records * fields.Length)
-                throw new InvalidDataException("Invalid SAP table shape: " + key);
+                throw new InvalidDataException("Invalid SAP2000/CSiBridge table shape: " + key);
             return new Table { Key = key, Version = version, Fields = fields, Data = data };
         }
 
@@ -1122,7 +1122,7 @@ namespace SapQuadTransitionPlugin
             ISet<string> names)
         {
             if (target.Key != source.Key || !target.Fields.SequenceEqual(source.Fields))
-                throw new InvalidDataException("Cannot combine incompatible SAP tables: " + target.Key);
+                throw new InvalidDataException("Cannot combine incompatible SAP2000/CSiBridge tables: " + target.Key);
             int name = Array.IndexOf(source.Fields, nameField);
             if (name < 0) throw new InvalidDataException(nameField + " field missing from " + source.Key);
             var data = target.Data.ToList();

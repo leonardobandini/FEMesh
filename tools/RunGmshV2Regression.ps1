@@ -5,7 +5,7 @@ param([Parameter(Mandatory=$true)][string]$Ids,
         [int]$CaseTimeoutSeconds = 480,
         [int]$SapPid = 0,
        [switch]$StandardCircularHoles,
-       [string]$InputModelDirectory = '', [string]$OutputSuffix = '',
+        [string]$InputModelDirectory = '', [string]$ManifestPath = '', [string]$OutputSuffix = '',
        [string]$ExpectedSapVersion = '')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -18,7 +18,9 @@ $runner = Join-Path $root 'bin\Release\net48\RunTest01Fast.dll'
 if (-not (Test-Path -LiteralPath $runner -PathType Leaf)) { throw 'Build RunTest01Fast.csproj first.' }
 $modelDirectory = if ($InputModelDirectory) { (Resolve-Path -LiteralPath $InputModelDirectory).Path }
                   else { Join-Path $root 'examples\atomic\models' }
-$manifest = Get-Content -LiteralPath (Join-Path $root 'examples\atomic\manifest.json') -Raw | ConvertFrom-Json
+$manifestFile = if ($ManifestPath) { (Resolve-Path -LiteralPath $ManifestPath).Path }
+                else { Join-Path $root 'examples\atomic\manifest.json' }
+$manifest = Get-Content -LiteralPath $manifestFile -Raw | ConvertFrom-Json
 New-Item -ItemType Directory -Path $RunDirectory | Out-Null
 $results = [Collections.Generic.List[object]]::new()
 $old = @{}
