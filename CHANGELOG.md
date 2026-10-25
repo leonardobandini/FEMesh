@@ -1,6 +1,6 @@
 # FEMesh — versione distribuita
 
-## 2.0.67 (in preparazione)
+## 2.0.67 — 25 ottobre 2026
 
 - Corretta la meshatura simultanea di solai e pareti quando un'intersezione parete–solaio attraversa un'apertura: nella cella del solaio rimossa non vengono più richiesti nodi e tratti di intersezione interni, mentre restano verificati il bordo dell'apertura e i vincoli delle aree verticali e dei tratti esterni. Verificati Applica e Annulla mesh su copia del modello a 110 aree, con 23.824 elementi generati.
 
