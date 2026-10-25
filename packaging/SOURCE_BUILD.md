@@ -38,7 +38,7 @@ foreach ($name in @('occt-7.8.1', 'fltk-1.3.11', 'med-4.1.0')) {
     Copy-Item -LiteralPath "third_party\native-sources\$name-source.tar.gz" -Destination "packaging\cache\$name-source.tar.gz"
 }
 powershell -NoProfile -ExecutionPolicy Bypass -File packaging\build-release-v2.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File packaging\PrepareV266Candidate.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File packaging\PrepareV267Candidate.ps1
 ```
 
 The release script compiles `SapQuadTransitionPlugin/SapGmshReplacement.csproj`
@@ -60,9 +60,10 @@ revision exposed by the unmodified official Gmsh wheel;
 neither the sources nor this script claim a bit-for-bit rebuild of that wheel.
 `-SkipBackendBuild` reuses a previously built frozen backend.
 
-`PrepareV266Candidate.ps1` creates `artifacts/candidate-v2.0.66/` with only the
+`PrepareV267Candidate.ps1` creates `artifacts/candidate-v2.0.67/` with only the
 ten release assets. Its `FEMesh-latest.zip` is copied byte-for-byte from the
 versioned installer; this local alias does not modify any published release.
+The historical `PrepareV266Candidate.ps1` remains available for 2.0.66 builds.
 
 The source build uses the pinned official Python 3.12.7 runtime. Its separate
 source is available at https://www.python.org/downloads/release/python-3127/ ;

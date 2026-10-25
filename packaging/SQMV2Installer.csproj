@@ -6,8 +6,8 @@
     <LangVersion>7.3</LangVersion>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <AssemblyName>SQMPluginInstaller</AssemblyName>
-    <Version>2.0.66</Version>
-    <FileVersion>2.0.66.0</FileVersion>
+    <Version>2.0.67</Version>
+    <FileVersion>2.0.67.0</FileVersion>
     <DefineConstants>$(DefineConstants);GMSH_V2</DefineConstants>
   </PropertyGroup>
   <ItemGroup><Compile Include="SQMPluginInstaller.cs" /></ItemGroup>

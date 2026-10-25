@@ -145,7 +145,8 @@ try {
         elseif ($version -eq '2.0.63') { '2.0.62' }
         elseif ($version -eq '2.0.64') { '2.0.63' }
         elseif ($version -eq '2.0.65') { '2.0.64' }
-        elseif ($version -eq '2.0.66') { '2.0.65' } else { '2.0.13' }
+        elseif ($version -eq '2.0.66') { '2.0.65' }
+        elseif ($version -eq '2.0.67') { '2.0.66' } else { '2.0.13' }
     $oldV2 = Join-Path $artifacts "Sap2000QuadMesher-$previous"
     if (Test-Path -LiteralPath (Join-Path $oldV2 'SQMPluginInstaller.exe') -PathType Leaf) {
         $trialV2 = Join-Path $build 'v2-upgrade-trial'
@@ -179,9 +180,19 @@ try {
     [IO.File]::WriteAllText("$publicZip.sha256", "$hash  $(Split-Path -Leaf $publicZip)`n", [Text.Encoding]::ASCII)
     & python (Join-Path $PSScriptRoot 'build-source-v2.py') $version
     if ($LASTEXITCODE -ne 0) { throw 'V2 corresponding source archive failed.' }
-    Copy-Item -LiteralPath $source -Destination (Join-Path $artifacts 'gmsh-4.15.2-source.tgz') -Force
-    [IO.File]::WriteAllText((Join-Path $artifacts 'gmsh-4.15.2-source.tgz.sha256'),
-        "$sourceHash  gmsh-4.15.2-source.tgz`n", [Text.Encoding]::ASCII)
+    $gmshArtifact = Join-Path $artifacts 'gmsh-4.15.2-source.tgz'
+    if (Test-Path -LiteralPath $gmshArtifact) {
+        if ((Get-FileHash -LiteralPath $gmshArtifact -Algorithm SHA256).Hash.ToLowerInvariant() -ne $sourceHash) {
+            throw 'Existing Gmsh source artifact differs from the pinned upstream source.'
+        }
+    } else { Copy-Item -LiteralPath $source -Destination $gmshArtifact }
+    $gmshChecksum = "$gmshArtifact.sha256"
+    $expectedChecksum = "$sourceHash  gmsh-4.15.2-source.tgz`n"
+    if (Test-Path -LiteralPath $gmshChecksum) {
+        if ([IO.File]::ReadAllText($gmshChecksum) -cne $expectedChecksum) {
+            throw 'Existing Gmsh source checksum differs.'
+        }
+    } else { [IO.File]::WriteAllText($gmshChecksum, $expectedChecksum, [Text.Encoding]::ASCII) }
     "V2_PACKAGE=$zip"; "V2_SHA256=$hash"
 } finally {
     if (Test-Path -LiteralPath $build) { Remove-Item -LiteralPath $build -Recurse -Force }

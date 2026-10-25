@@ -92,7 +92,7 @@ def main():
                      int.from_bytes(raw[20:24], 'big') < 760 or
                      hashlib.sha256(raw).digest() == hashlib.sha256(old_image.read_bytes()).digest()):
                 raise ValueError(name + ': missing or invalid current-interface screenshot ' + tab)
-        for marker in ((('FEMesh version · 2.0.66' if name.endswith('-en.html') else 'Versione FEMesh · 2.0.66'), 'leonardo@csi-italia.eu', 'Mesh.MeshSizeMin', 'Mesh.Smoothing', 'Mesh.AlgorithmSwitchOnFailure',
+        for marker in ((('FEMesh version · 2.0.67' if name.endswith('-en.html') else 'Versione FEMesh · 2.0.67'), 'leonardo@csi-italia.eu', 'Mesh.MeshSizeMin', 'Mesh.Smoothing', 'Mesh.AlgorithmSwitchOnFailure',
                           'https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist',
                           'https://gmsh.info/', 'C. Geuzaine', 'J.-F. Remacle',
                           'Gmsh attribution.' if name.endswith('-en.html') else 'Attribuzione Gmsh.',
@@ -101,7 +101,7 @@ def main():
                           'Mesh.QuadqsSizemapMethod', 'Mesh.RecombineNodeRepositioning',
                           'Mesh.RecombineOptimizeTopology',
                           'Prefer regular (grid-aligned) mesh when possible' if name.endswith('-en.html') else 'Preferisci mesh regolari allineate alla griglia',
-                               'October 23, 2026' if name.endswith('-en.html') else '23 ottobre 2026',
+                                'October 25, 2026' if name.endswith('-en.html') else '25 ottobre 2026',
                           'Additional options' if name.endswith('-en.html') else 'Opzioni aggiuntive',
                           'Transfer options' if name.endswith('-en.html') else 'Opzioni di trasferimento',
                           'Do not show this backup warning again' if name.endswith('-en.html') else 'Non mostrare più questo avviso sul backup',

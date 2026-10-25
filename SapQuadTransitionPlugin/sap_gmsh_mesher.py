@@ -772,6 +772,7 @@ def mesh_areas(areas, max_size, settings):
             opening_curves = set()
         geo.synchronize()
         excluded_opening_points = [set() for _ in geometry]
+        excluded_opening_frames = [set() for _ in geometry]
         owners = {}
         for index, faces in enumerate(faces_by_area):
             if not faces:
@@ -829,12 +830,27 @@ def mesh_areas(areas, max_size, settings):
                     removed.update(component)
             for face in removed:
                 owner = face_owner[face]
-                for point in geometry[owner][0][4]:
-                    on_opening_boundary = any(math.dist(
-                        point, gmsh.model.getClosestPoint(1, curve, point)[0]) <= 1e-7
-                        for curve in opening_curves)
-                    if not on_opening_boundary and gmsh.model.isInside(2, face, point):
+                # Non-coplanar shell intersections can introduce an INTERIOR
+                # constraint on the host slab inside a cell that is removed as
+                # an opening. That joint is still required on the incident
+                # wall, but cannot be required on the now-empty slab cell.
+                for point in geometry[owner][0][2] + geometry[owner][0][4]:
+                    if gmsh.model.isInside(2, face, point) and not any(math.dist(
+                            point, gmsh.model.getClosestPoint(1, curve, point)[0]) <= 1e-7
+                            for curve in opening_curves):
                         excluded_opening_points[owner].add(point)
+                # The same removed floor cell can contain segments of an
+                # automatic wall/slab intersection. Keep checking segments
+                # outside the void and the actual opening perimeter.
+                for frame in geometry[owner][0][3]:
+                    _, start, end = frame
+                    midpoint = tuple((a + b) / 2 for a, b in zip(start, end))
+                    if any(math.dist(midpoint, gmsh.model.getClosestPoint(1, curve, midpoint)[0]) <= 1e-7
+                           for curve in opening_curves):
+                        continue
+                    if all(gmsh.model.isInside(2, face, tuple(a + (b - a) * t
+                            for a, b in zip(start, end))) for t in (.01, .25, .5, .75, .99)):
+                        excluded_opening_frames[owner].add(frame)
             for faces in faces_by_area:
                 faces[:] = [face for face in faces if face not in removed]
             if any(not faces for faces in faces_by_area):
@@ -996,7 +1012,8 @@ def mesh_areas(areas, max_size, settings):
             validate_sliver_triangles(nodes, elements, max_size)
             excluded = excluded_opening_points[area_index]
             validate_constraints(nodes, elements,
-                                 [point for point in interior + selected if point not in excluded], frames)
+                                 [point for point in interior + selected if point not in excluded],
+                                 [frame for frame in frames if frame not in excluded_opening_frames[area_index]])
             used = {tag for element in elements for tag in element}
             if settings.get("preserveSelectedEdges"):
                 for number in protected_edges:

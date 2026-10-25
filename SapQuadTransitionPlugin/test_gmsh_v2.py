@@ -743,6 +743,59 @@ class GmshV2Tests(unittest.TestCase):
                                      and .62 < sum(nodes[tag][1] for tag in element) / len(element) < 1.38
                                      for element in elements))
 
+    def test_vertical_wall_base_crosses_opening_in_horizontal_slab(self):
+        # A wall/base intersection lies inside a removed floor cell but still
+        # belongs to the retained vertical wall. A second intersection just
+        # outside the opening must remain connected to both shell meshes.
+        from sap_gmsh_mesher import mesh_areas
+        inside = (0, .75, 0)
+        outside = (0, 1.25, 0)
+        with tempfile.TemporaryDirectory() as directory:
+            inputs = []
+            for index in (0, 1):
+                boundary = os.path.join(directory, f'area{index}.csv')
+                output = os.path.join(directory, f'mesh{index}.csv')
+                with open(boundary, 'w', newline='') as stream:
+                    writer = csv.writer(stream)
+                    writer.writerow(('AREA', f'A{index}', 'Shell'))
+                    corners = (((-2, -2, 0), (2, -2, 0), (2, 2, 0), (-2, 2, 0))
+                               if index == 0 else
+                               ((0, .5, 0), (0, 1.5, 0), (0, 1.5, 1), (0, .5, 1)))
+                    for number, point in enumerate(corners, 1):
+                        writer.writerow(('CORNER', number, str(number), 0, *point))
+                    if index == 0:
+                        for number, point in enumerate((inside, outside), 1):
+                            writer.writerow(('INTERIOR', 0, f'wall-base-{number}', 0, *point))
+                        opening = ((-1, -1, 0), (1, -1, 0), (1, 1, 0), (-1, 1, 0))
+                        for number, point in enumerate(opening, 1):
+                            writer.writerow(('FRAME', number, f'opening-{number}', 0, *point,
+                                             *opening[number % 4], 0, 1))
+                        # Automatic wall/slab intersection constraints straddle
+                        # the opening. The part in the void is not a floor edge;
+                        # the part beyond the opening remains mandatory.
+                        writer.writerow(('FRAME', 5, 'wall-inside-opening', 0,
+                                         0, .5, 0, 0, 1, 0, 1, 0))
+                        writer.writerow(('FRAME', 6, 'wall-outside-opening', 0,
+                                         0, 1, 0, 0, 1.5, 0, 1, 0))
+                    else:
+                        for station, point in ((.25, inside), (.75, outside)):
+                            writer.writerow(('EDGE', 1, 'wall-base', station, *point))
+                inputs.append((boundary, output))
+            mesh_areas(inputs, .25, dict(algorithm=8, recombine=True, recombination=0,
+                                         optimize=False, smoothing=1, options={}))
+            used_by_area = []
+            for _, output in inputs:
+                with open(output, newline='') as stream:
+                    rows = list(csv.reader(stream))
+                nodes = {int(row[1]): tuple(map(float, row[2:])) for row in rows if row[0] == 'N'}
+                elements = [tuple(map(int, row[1:])) for row in rows if row[0] == 'E']
+                self.assertTrue(elements)
+                used_by_area.append({nodes[tag] for element in elements for tag in element})
+            self.assertFalse(any(math.dist(inside, point) < 1e-7 for point in used_by_area[0]))
+            self.assertTrue(any(math.dist(inside, point) < 1e-7 for point in used_by_area[1]))
+            for area in used_by_area:
+                self.assertTrue(any(math.dist(outside, point) < 1e-7 for point in area))
+
     def test_grouped_opening_crosses_unprotected_shared_area_seam(self):
         from sap_gmsh_mesher import mesh_areas
         with tempfile.TemporaryDirectory() as directory:

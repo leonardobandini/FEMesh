@@ -10,6 +10,7 @@ import json
 import shutil
 import sys
 import tarfile
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / 'packaging' / 'native-gmsh-sources.json'
@@ -29,8 +30,9 @@ def sha(path, algorithm='sha256'):
 
 def main(stage):
     stage = stage.resolve()
-    if stage != (ROOT / 'artifacts' / 'Sap2000QuadMesher-2.0.66').resolve():
-        raise ValueError('Only the generated FEMesh 2.0.66 staging directory may be updated')
+    version = ET.parse(ROOT / 'SapQuadTransitionPlugin' / 'SapGmshReplacement.csproj').findtext('./PropertyGroup/Version')
+    if not version or stage != (ROOT / 'artifacts' / ('Sap2000QuadMesher-' + version)).resolve():
+        raise ValueError('Only the generated FEMesh ' + str(version) + ' staging directory may be updated')
     licenses = stage / 'licenses'
     if not licenses.is_dir():
         raise FileNotFoundError(licenses)
@@ -77,8 +79,13 @@ def main(stage):
                     raise ValueError('Existing artifact is not the pinned source: ' + name)
             else:
                 shutil.copyfile(cached, artifact)
-            (ROOT / 'artifacts' / (name + '.sha256')).write_text(
-                item['sha256'] + '  ' + name + '\n', encoding='ascii')
+            checksum = ROOT / 'artifacts' / (name + '.sha256')
+            expected_checksum = item['sha256'] + '  ' + name + '\n'
+            if checksum.exists():
+                if checksum.read_text(encoding='ascii') != expected_checksum:
+                    raise ValueError('Existing source checksum differs: ' + name)
+            else:
+                checksum.write_text(expected_checksum, encoding='ascii')
             location = 'RELEASE_ASSET'
         else:
             location = 'FEMESH_SOURCE_ZIP'

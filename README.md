@@ -4,15 +4,15 @@ FEMesh è un plugin open source per generare mesh di elementi shell prevalenteme
 
 ## Distribuzione corrente
 
-- [Ultima release stabile FEMesh](https://github.com/leonardobandini/FEMesh/releases/latest) · [ZIP d'installazione a nome stabile](https://github.com/leonardobandini/FEMesh/releases/latest/download/FEMesh-latest.zip) · [ZIP, sorgenti e checksum](packaging/SOURCE.template.md).
-- Prerequisito esterno: [Microsoft Visual C++ Redistributable x64](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist), versione **14.42.34226.3 o successiva compatibile**. Dalla candidata locale 2.0.66 l'installer, se manca, lo scarica dal sito Microsoft, verifica la firma e avvia il setup ufficiale interattivo prima di installare FEMesh. La release pubblica 2.0.65 richiede ancora l'installazione manuale. Nessuna DLL runtime Visual C++ Microsoft è inclusa nello ZIP FEMesh.
-- Per installare la candidata 2.0.66: estrai lo ZIP e avvia **`FEMeshSetup.exe`** (oppure `install_plugin.cmd`, che apre la stessa finestra). L'installer grafico mostra licenze, sorgenti e tutte le fasi in italiano o inglese; rileva la lingua di Windows e permette di cambiarla manualmente. Prima di sostituire la versione precedente e registrarsi nei menu di SAP2000/CSiBridge, richiede in modo bloccante la chiusura delle eventuali sessioni aperte, senza chiudere o salvare modelli. Se richiesto, completa il setup Microsoft e l'eventuale riavvio di Windows; infine riapri l'host. Lo ZIP pubblico 2.0.65 mantiene la precedente procedura tramite `install_plugin.cmd`.
+- [Release stabile FEMesh 2.0.66](https://github.com/leonardobandini/FEMesh/releases/tag/v2.0.66) · [ZIP d'installazione a nome stabile](https://github.com/leonardobandini/FEMesh/releases/latest/download/FEMesh-latest.zip) · [ZIP, sorgenti e checksum](packaging/SOURCE.template.md).
+- Prerequisito esterno: [Microsoft Visual C++ Redistributable x64](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist), versione **14.42.34226.3 o successiva compatibile**. Dalla versione 2.0.66 l'installer, se manca, lo scarica dal sito Microsoft, verifica la firma e avvia il setup ufficiale interattivo prima di installare FEMesh. Nessuna DLL runtime Visual C++ Microsoft è inclusa nello ZIP FEMesh.
+- Per installare la release 2.0.66: estrai lo ZIP e avvia **`FEMeshSetup.exe`** (oppure `install_plugin.cmd`, che apre la stessa finestra). L'installer grafico mostra licenze, sorgenti e tutte le fasi in italiano o inglese; rileva la lingua di Windows e permette di cambiarla manualmente. Prima di sostituire la versione precedente e registrarsi nei menu di SAP2000/CSiBridge, richiede in modo bloccante la chiusura delle eventuali sessioni aperte, senza chiudere o salvare modelli. Se richiesto, completa il setup Microsoft e l'eventuale riavvio di Windows; infine riapri l'host.
 - [Guida FEMesh in italiano](docs/help-gmsh-v2/index-it.html) · [English help](docs/help-gmsh-v2/index-en.html).
 - [Build dai sorgenti](packaging/SOURCE_BUILD.md) · [licenze e termini](LICENSE-APPLICATION.md) · [componenti di terzi](THIRD_PARTY_NOTICES.md).
 
-La versione **2.0.65** include `SOURCE.md` con i riferimenti ai sorgenti corrispondenti della stessa release. La verifica di ogni modello ingegneristico risultante resta a carico dell'utilizzatore.
+La versione **2.0.66** include `SOURCE.md` con i riferimenti ai sorgenti corrispondenti della stessa release. La verifica di ogni modello ingegneristico risultante resta a carico dell'utilizzatore.
 
-La **2.0.66** è una candidata locale in verifica: corregge le aperture il cui contorno coincide con frame selezionati esterni al gruppo. Non è ancora una release pubblicata.
+La release stabile **2.0.66** corregge le aperture il cui contorno coincide con frame selezionati esterni al gruppo.
 
 ## Salvataggio e ripristino della mesh
 

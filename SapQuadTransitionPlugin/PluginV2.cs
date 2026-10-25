@@ -37,7 +37,7 @@ namespace SapQuadTransitionPlugin
         private const int AreaObjectType = 5;
         private const int SolidObjectType = 6;
         private const int LinkObjectType = 7;
-        private const string PluginVersion = "2.0.66";
+        private const string PluginVersion = "2.0.67";
         private const string WindowTitle = "FEMesh " + PluginVersion;
         private const string UpdateManifestUrl = "https://api.github.com/repos/leonardobandini/FEMesh/releases/latest";
         private const string LatestDownloadUrl = "https://github.com/leonardobandini/FEMesh/releases/latest/download/FEMesh-latest.zip";

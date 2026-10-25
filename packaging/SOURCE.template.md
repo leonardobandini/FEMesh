@@ -18,8 +18,9 @@ https://github.com/leonardobandini/FEMesh/releases/tag/v{VERSION}
 | `mmg-5.5.2-source.tar.gz` (official MmgTools tag confirmed by the DLL execution banner) | https://github.com/leonardobandini/FEMesh/releases/download/v{VERSION}/mmg-5.5.2-source.tar.gz |
 | `mmg-5.5.2-source.tar.gz.sha256` | https://github.com/leonardobandini/FEMesh/releases/download/v{VERSION}/mmg-5.5.2-source.tar.gz.sha256 |
 
-`NATIVE-SOURCES.json` in the installer and source archive records upstream
-URLs, immutable revisions and SHA-256 values for native dependency sources.
+`NATIVE-SOURCES.json` in the installer and `packaging/native-gmsh-sources.json`
+in the source archive record upstream URLs, immutable revisions and SHA-256
+values for native dependency sources.
 The OCCT 7.8.1, FLTK 1.3.11 and MED 4.1.0 source archives are included in
 `Sap2000QuadMesher-{VERSION}-source.zip` at `third_party/native-sources/`;
 MMG 5.5.2 and Gmsh 4.15.2 are separate source assets of this same release.

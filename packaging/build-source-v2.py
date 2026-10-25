@@ -67,6 +67,7 @@ def main(version):
          "packaging/SQMV2Installer.csproj", "packaging/FEMeshSetup.csproj",
          "packaging/FEMeshSetup.cs", "packaging/BackendVersion.txt",
          "packaging/build-release-v2.ps1", "packaging/PrepareV266Candidate.ps1",
+         "packaging/PrepareV267Candidate.ps1",
         "packaging/build-source-v2.py", "packaging/TestV2Standalone.ps1",
         "packaging/TestV2MenuMigration.ps1", "packaging/InstallV2FromZip.ps1",
         "packaging/TestFEMeshHostDiscovery.ps1",
