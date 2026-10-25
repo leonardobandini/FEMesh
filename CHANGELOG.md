@@ -1,5 +1,9 @@
 # FEMesh — versione distribuita
 
+## 2.0.68 — 25 ottobre 2026
+
+- Un tentativo di sbloccare il modello mentre FEMesh è aperto richiude il lucchetto e mostra un avviso modale anche ai tentativi successivi: premere OK conserva l'anteprima, i comandi Applica/Annulla e la possibilità di zoom e pan senza provocare un errore di Annulla. Durante Genera, Applica e Annulla e mentre sono aperte domande o avvisi del plugin, l'interazione con il modello è bloccata. Verificati i cicli ripetuti di avviso e la doppia matrice Applica/Annulla su SAP2000 e CSiBridge (144/144 casi).
+
 ## 2.0.67 — 25 ottobre 2026
 
 - Corretta la meshatura simultanea di solai e pareti quando un'intersezione parete–solaio attraversa un'apertura: nella cella del solaio rimossa non vengono più richiesti nodi e tratti di intersezione interni, mentre restano verificati il bordo dell'apertura e i vincoli delle aree verticali e dei tratti esterni. Verificati Applica e Annulla mesh su copia del modello a 110 aree, con 23.824 elementi generati.

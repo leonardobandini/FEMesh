@@ -92,7 +92,7 @@ def main():
                      int.from_bytes(raw[20:24], 'big') < 760 or
                      hashlib.sha256(raw).digest() == hashlib.sha256(old_image.read_bytes()).digest()):
                 raise ValueError(name + ': missing or invalid current-interface screenshot ' + tab)
-        for marker in ((('FEMesh version · 2.0.67' if name.endswith('-en.html') else 'Versione FEMesh · 2.0.67'), 'leonardo@csi-italia.eu', 'Mesh.MeshSizeMin', 'Mesh.Smoothing', 'Mesh.AlgorithmSwitchOnFailure',
+        for marker in ((('FEMesh version · 2.0.68' if name.endswith('-en.html') else 'Versione FEMesh · 2.0.68'), 'leonardo@csi-italia.eu', 'Mesh.MeshSizeMin', 'Mesh.Smoothing', 'Mesh.AlgorithmSwitchOnFailure',
                           'https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist',
                           'https://gmsh.info/', 'C. Geuzaine', 'J.-F. Remacle',
                           'Gmsh attribution.' if name.endswith('-en.html') else 'Attribuzione Gmsh.',

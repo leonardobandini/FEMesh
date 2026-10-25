@@ -37,7 +37,7 @@ namespace SapQuadTransitionPlugin
         private const int AreaObjectType = 5;
         private const int SolidObjectType = 6;
         private const int LinkObjectType = 7;
-        private const string PluginVersion = "2.0.67";
+        private const string PluginVersion = "2.0.68";
         private const string WindowTitle = "FEMesh " + PluginVersion;
         private const string UpdateManifestUrl = "https://api.github.com/repos/leonardobandini/FEMesh/releases/latest";
         private const string LatestDownloadUrl = "https://github.com/leonardobandini/FEMesh/releases/latest/download/FEMesh-latest.zip";
@@ -167,9 +167,11 @@ namespace SapQuadTransitionPlugin
             string path = HelpPath(useItalian);
             if (!File.Exists(path))
             {
-                MessageBox.Show(owner, L("The local help is missing from the installation.",
-                    "La guida locale non è presente nell'installazione."), WindowTitle,
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ShowHostModal(owner.Handle, interactiveDialog == null ? Process.GetCurrentProcess().MainWindowHandle :
+                    interactiveDialog.HostWindow,
+                    () => MessageBox.Show(owner, L("The local help is missing from the installation.",
+                        "La guida locale non è presente nell'installazione."), WindowTitle,
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning));
                 return;
             }
             // The options dialog stays above SAP2000 while meshing, but the
@@ -498,6 +500,48 @@ namespace SapQuadTransitionPlugin
         [DllImport("user32.dll")]
         private static extern bool GetWindowRect(IntPtr window, out WindowRect rectangle);
 
+        private static T ShowHostModal<T>(IntPtr pluginWindow, IntPtr hostWindow, Func<T> show)
+        {
+            if (hostWindow == IntPtr.Zero || !IsWindow(hostWindow)) return show();
+            uint hostPid;
+            GetWindowThreadProcessId(hostWindow, out hostPid);
+            if (hostPid != (uint)Process.GetCurrentProcess().Id) return show();
+            var disabled = new List<IntPtr>();
+            try
+            {
+                bool blocked = EnumWindows(delegate(IntPtr window, IntPtr unused)
+                {
+                    uint pid;
+                    GetWindowThreadProcessId(window, out pid);
+                    if (pid != hostPid || window == pluginWindow || !IsWindowVisible(window) ||
+                        !IsWindowEnabled(window)) return true;
+                    EnableWindow(window, false);
+                    if (IsWindowEnabled(window)) return false;
+                    disabled.Add(window);
+                    return true;
+                }, IntPtr.Zero);
+                if (!blocked || IsWindowEnabled(hostWindow))
+                    throw new InvalidOperationException("Cannot prevent SAP2000/CSiBridge interaction during a FEMesh dialog.");
+                return show();
+            }
+            finally
+            {
+                foreach (IntPtr window in disabled)
+                {
+                    uint pid;
+                    if (IsWindow(window) && GetWindowThreadProcessId(window, out pid) != 0 &&
+                        pid == hostPid && !IsWindowEnabled(window)) EnableWindow(window, true);
+                }
+            }
+        }
+
+        internal static T ShowHostModalFromPanel<T>(Form owner, Func<T> show)
+        {
+            MeshOptionsDialog dialog = interactiveDialog;
+            IntPtr hostWindow = dialog == null ? Process.GetCurrentProcess().MainWindowHandle : dialog.HostWindow;
+            return ShowHostModal(owner.Handle, hostWindow, show);
+        }
+
         private static string WindowText(IntPtr window)
         {
             var text = new StringBuilder(512);
@@ -695,8 +739,9 @@ namespace SapQuadTransitionPlugin
                 if (!string.IsNullOrEmpty(automationError))
                     try { File.WriteAllText(automationError, exception.ToString()); } catch { }
                 else
-                    try { MessageBox.Show(LocalizeErrorMessage(exception.Message), WindowTitle,
-                        MessageBoxButtons.OK, MessageBoxIcon.Error); }
+                    try { ShowHostModal(IntPtr.Zero, Process.GetCurrentProcess().MainWindowHandle,
+                        () => MessageBox.Show(LocalizeErrorMessage(exception.Message), WindowTitle,
+                            MessageBoxButtons.OK, MessageBoxIcon.Error)); }
                     catch (Exception displayError) { LogPluginException(displayError); }
             }
             finally { if (callback != null) callback.Finish(error); }
@@ -817,6 +862,15 @@ namespace SapQuadTransitionPlugin
 
             internal bool Active { get { return active; } }
             internal bool ExternalUnlockObserved { get { return externalUnlock; } }
+
+            internal void AcknowledgeExternalRelock()
+            {
+                if (!active || !externalUnlock) return;
+                if (!string.Equals(model.GetModelFilename(true), modelPath, StringComparison.OrdinalIgnoreCase) ||
+                    !model.GetModelIsLocked())
+                    throw new InvalidOperationException("The original model must be locked before continuing FEMesh.");
+                externalUnlock = false;
+            }
 
             internal void CheckReady()
             {
@@ -1014,18 +1068,31 @@ namespace SapQuadTransitionPlugin
                         " areas=" + areas.Length);
                 };
                 var selectionClock = Stopwatch.StartNew();
+                var lockClock = Stopwatch.StartNew();
                 while (dialog.Visible)
                 {
                     while (dialog.Visible && !dialog.StartRequested)
                     {
                         Application.DoEvents();
+                        if (sessionLock.Active && lockClock.ElapsedMilliseconds >= 50)
+                        {
+                            try { sessionLock.CheckReady(); }
+                            catch (Exception error)
+                            {
+                                if (sessionLock.ExternalUnlockObserved)
+                                    dialog.ReportModelLockViolation(error.Message, sessionLock.AcknowledgeExternalRelock);
+                                else dialog.SelectionRefreshFailed(error.Message);
+                            }
+                            finally { lockClock.Restart(); }
+                        }
                         if (!automatedExample && dialog.CanRefreshSelection &&
                             selectionClock.ElapsedMilliseconds >= 350)
                         {
                             try { refreshSelection(false); }
                             catch (Exception error)
                             {
-                                if (sessionLock.ExternalUnlockObserved) dialog.ReportModelLockViolation(error.Message);
+                                 if (sessionLock.ExternalUnlockObserved)
+                                     dialog.ReportModelLockViolation(error.Message, sessionLock.AcknowledgeExternalRelock);
                                 else dialog.SelectionRefreshFailed(error.Message);
                             }
                             selectionClock.Restart();
@@ -1425,17 +1492,17 @@ namespace SapQuadTransitionPlugin
                     }
                     while (dialog.Visible && !dialog.RetryRequested && dialog.UndoFailure == null)
                     {
-                        if (sessionLock.Active && !dialog.Applied && selectionClock.ElapsedMilliseconds >= 350)
+                        if (sessionLock.Active && lockClock.ElapsedMilliseconds >= 50)
+                        {
                             try { sessionLock.CheckReady(); }
                             catch (Exception error)
                             {
                                 if (sessionLock.ExternalUnlockObserved)
-                                {
-                                    dialog.ReportModelLockViolation(error.Message);
-                                    dialog.StopUnsafePreview(error);
-                                }
+                                    dialog.ReportModelLockViolation(error.Message, sessionLock.AcknowledgeExternalRelock);
                                 else dialog.SelectionRefreshFailed(error.Message);
                             }
+                            finally { lockClock.Restart(); }
+                        }
                         // Apply has already released the transaction snapshot;
                         // keep the quality report visible until the user selects
                         // another area or opens a different SDB, then rearm.
@@ -1459,7 +1526,8 @@ namespace SapQuadTransitionPlugin
                             }
                             catch (Exception error)
                             {
-                                if (sessionLock.ExternalUnlockObserved) dialog.ReportModelLockViolation(error.Message);
+                                 if (sessionLock.ExternalUnlockObserved)
+                                     dialog.ReportModelLockViolation(error.Message, sessionLock.AcknowledgeExternalRelock);
                                 else dialog.SelectionRefreshFailed(error.Message);
                             }
                             selectionClock.Restart();
@@ -7053,12 +7121,14 @@ namespace SapQuadTransitionPlugin
             licenseLink.LinkClicked += delegate
             {
                 string root = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-                MessageBox.Show(form,
-                    L("Copyright (C) 2026 Leonardo Bandini. GPL version 2 or later; no warranty. " +
-                      "Read LICENSE, GPL-3.0.txt and SOURCE.md in " + root + " for license terms and corresponding source.",
-                      "Copyright (C) 2026 Leonardo Bandini. GPL versione 2 o successiva; nessuna garanzia. " +
-                      "Leggere LICENSE, GPL-3.0.txt e SOURCE.md in " + root + " per licenze e sorgenti corrispondenti."),
-                    WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ShowHostModal(form.Handle, interactiveDialog == null ? Process.GetCurrentProcess().MainWindowHandle :
+                    interactiveDialog.HostWindow,
+                    () => MessageBox.Show(form,
+                        L("Copyright (C) 2026 Leonardo Bandini. GPL version 2 or later; no warranty. " +
+                          "Read LICENSE, GPL-3.0.txt and SOURCE.md in " + root + " for license terms and corresponding source.",
+                          "Copyright (C) 2026 Leonardo Bandini. GPL versione 2 o successiva; nessuna garanzia. " +
+                          "Leggere LICENSE, GPL-3.0.txt e SOURCE.md in " + root + " per licenze e sorgenti corrispondenti."),
+                        WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Information));
             };
             form.Controls.Add(licenseLink);
             form.Controls.Add(new Label
@@ -7597,7 +7667,7 @@ namespace SapQuadTransitionPlugin
             }
             public void ShowNeverSavedModelWarning()
             {
-                MessageBox.Show(this, L("This model has never been saved. Save it in " + HostProductName() +
+                ShowHostMessage(L("This model has never been saved. Save it in " + HostProductName() +
                     " before meshing with FEMesh. The options and help remain available in the meantime.",
                     "Questo modello non è mai stato salvato. Salvarlo in " + HostProductName() +
                     " prima di procedere con la meshatura tramite FEMesh. Opzioni e guida restano consultabili."),
@@ -7637,7 +7707,7 @@ namespace SapQuadTransitionPlugin
                 catch (Exception error)
                 {
                     status.Text = LocalizeErrorMessage(error.Message);
-                    MessageBox.Show(this, status.Text, WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ShowHostMessage(status.Text, WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false; // Do not run a destructive action on the wrong/locked model.
                 }
             }
@@ -7652,7 +7722,7 @@ namespace SapQuadTransitionPlugin
                     "turn off \"Selection Only\" in the upper-right corner, close the table, then click Generate again.",
                     product + " restituisce tabelle del modello filtrate agli oggetti selezionati. Apri \"Display->Show Tables\", " +
                     "disattiva \"Selection Only\" in alto a destra, chiudi la tabella e premi di nuovo Genera.");
-                MessageBox.Show(this, message, WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ShowHostMessage(message, WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             public void SetInsertionNotice(string notice) { insertionNotice = notice; }
             public void SetApplyBackupInfo(Func<string> callback) { applyBackupInfo = callback; }
@@ -7703,7 +7773,7 @@ namespace SapQuadTransitionPlugin
                     choice.Controls.Add(cancel); choice.Controls.Add(proceed);
                     choice.AcceptButton = cancel;
                     choice.CancelButton = cancel;
-                    bool confirmed = choice.ShowDialog(this) == DialogResult.Yes;
+                    bool confirmed = ShowHostDialog(choice) == DialogResult.Yes;
                     if (enableBackup.Checked)
                     {
                         createBackup.Checked = true;
@@ -7734,7 +7804,7 @@ namespace SapQuadTransitionPlugin
                     if (!string.IsNullOrEmpty(backup) && File.Exists(backup))
                         warning += Environment.NewLine + Environment.NewLine +
                             L("Numbered backup: ", "Backup numerato: ") + backup;
-                    return MessageBox.Show(this, warning,
+                    return ShowHostMessage(warning,
                         L("Shell design assignments will be lost", "Perdita delle assegnazioni di progetto shell"),
                         MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
                         MessageBoxDefaultButton.Button2) == DialogResult.Yes;
@@ -7793,7 +7863,7 @@ namespace SapQuadTransitionPlugin
                     choice.Controls.Add(no); choice.Controls.Add(yes);
                     choice.AcceptButton = no;
                     choice.CancelButton = no;
-                    if (choice.ShowDialog(this) != DialogResult.Yes) return false;
+                    if (ShowHostDialog(choice) != DialogResult.Yes) return false;
                     if (suppress.Checked) skipApplyConfirmation = true;
                 }
                 RememberOptions();
@@ -7928,53 +7998,50 @@ namespace SapQuadTransitionPlugin
                     "Impossibile leggere la selezione corrente; nuovo tentativo...");
                 measurementToolTip.SetToolTip(status, diagnostic);
             }
-            public void ReportModelLockViolation(string diagnostic)
+            private DialogResult ShowHostMessage(string text, string title, MessageBoxButtons buttons,
+                MessageBoxIcon icon, MessageBoxDefaultButton defaultButton = MessageBoxDefaultButton.Button1)
             {
-                generate.Enabled = false;
-                status.Text = L("The SAP2000 model was unlocked while FEMesh was open. Close FEMesh and inspect the model before continuing.",
-                    "Il modello SAP2000 è stato sbloccato mentre FEMesh era aperto. Chiudere FEMesh e verificare il modello prima di continuare.");
-                measurementToolTip.SetToolTip(status, diagnostic);
+                return ShowHostModal(Handle, viewportWindow,
+                    () => MessageBox.Show(this, text, title, buttons, icon, defaultButton));
+            }
+            private DialogResult ShowHostDialog(Form form)
+            {
+                return ShowHostModal(Handle, viewportWindow, () => form.ShowDialog(this));
+            }
+            public void ReportModelLockViolation(string diagnostic)
+            { ReportModelLockViolation(diagnostic, null); }
+            public void ReportModelLockViolation(string diagnostic, Action acknowledged)
+            {
                 if (modelLockWarningShown) return;
-                // MessageBox.Show(this) only disables the FEMesh window: SAP's
-                // modeless host window runs on another UI thread and remains
-                // clickable. Disable every currently enabled host-owned top-
-                // level window, including any SAP unlock confirmation, for the
-                // entire lifetime of this warning; restore only our changes.
-                var disabled = new List<IntPtr>();
-                uint hostPid = (uint)Process.GetCurrentProcess().Id;
-                IntPtr pluginWindow = Handle;
+                bool wasGenerateEnabled = generate.Enabled, wasUndoEnabled = undo.Enabled;
+                bool wasDetailsEnabled = details.Enabled;
+                string previousStatus = status.Text;
+                string previousTooltip = measurementToolTip.GetToolTip(status);
+                modelLockWarningShown = true;
                 try
                 {
-                    bool blocked = EnumWindows(delegate(IntPtr window, IntPtr unused)
-                    {
-                        uint pid;
-                        GetWindowThreadProcessId(window, out pid);
-                        if (pid != hostPid || window == pluginWindow || !IsWindowVisible(window) ||
-                            !IsWindowEnabled(window)) return true;
-                        EnableWindow(window, false);
-                        if (IsWindowEnabled(window)) return false;
-                        disabled.Add(window);
-                        return true;
-                    }, IntPtr.Zero);
-                    if (!blocked || (viewportWindow != IntPtr.Zero && IsWindowEnabled(viewportWindow)))
-                        throw new InvalidOperationException("Cannot block SAP2000 while displaying the model-lock warning.");
-                    modelLockWarningShown = true;
-                    MessageBox.Show(this, status.Text, WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    generate.Enabled = undo.Enabled = details.Enabled = false;
+                    string message = L("The " + HostProductName() + " model cannot be unlocked while FEMesh is open. " +
+                        "The model has been relocked; the mesh preview is unchanged.",
+                        "Non è possibile sbloccare il modello " + HostProductName() + " mentre FEMesh è aperto. " +
+                        "Il modello è stato nuovamente bloccato; l'anteprima della mesh non è cambiata.");
+                    measurementToolTip.SetToolTip(status, diagnostic);
+                    status.Text = message;
+                    ShowHostMessage(message, WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    if (acknowledged != null) acknowledged();
                 }
                 finally
                 {
-                    foreach (IntPtr window in disabled)
+                    modelLockWarningShown = false;
+                    if (!IsDisposed)
                     {
-                        uint pid;
-                        if (IsWindow(window) && GetWindowThreadProcessId(window, out pid) != 0 &&
-                            pid == hostPid && !IsWindowEnabled(window)) EnableWindow(window, true);
+                        generate.Enabled = wasGenerateEnabled;
+                        undo.Enabled = wasUndoEnabled;
+                        details.Enabled = wasDetailsEnabled;
+                        status.Text = previousStatus;
+                        measurementToolTip.SetToolTip(status, previousTooltip);
                     }
                 }
-            }
-            public void StopUnsafePreview(Exception error)
-            {
-                UndoFailure = error;
-                generate.Enabled = undo.Enabled = false;
             }
             public void SetGeneratedInventory(MeshInventory inventory)
             {
@@ -7983,6 +8050,7 @@ namespace SapQuadTransitionPlugin
             }
             public void UndoForAutomation() { undo.PerformClick(); }
             public void ApplyForAutomation() { if (qualityReport != null && !Applied) generate.PerformClick(); }
+            internal IntPtr HostWindow { get { return viewportWindow; } }
             public void AllowViewportInteraction(IntPtr window)
             {
                 // SAP2000 handles navigation on its own thread after the plugin
@@ -8060,7 +8128,7 @@ namespace SapQuadTransitionPlugin
                         if (choice.DialogResult != DialogResult.No && choice.DialogResult != DialogResult.Yes)
                             e.Cancel = true;
                     };
-                    return choice.ShowDialog(this);
+                    return ShowHostDialog(choice);
                 }
             }
             internal Form ShowCloseProgress(bool apply)
@@ -8096,9 +8164,23 @@ namespace SapQuadTransitionPlugin
                         sapBounds.Left + (sapBounds.Right - sapBounds.Left - progressWindow.Width) / 2,
                         sapBounds.Top + (sapBounds.Bottom - sapBounds.Top - progressWindow.Height) / 2);
                 }
-                progressWindow.Show(this);
-                Application.DoEvents();
-                return progressWindow;
+                bool ownerWasEnabled = Enabled;
+                Enabled = false;
+                progressWindow.Disposed += delegate
+                {
+                    if (ownerWasEnabled && !IsDisposed) Enabled = true;
+                };
+                try
+                {
+                    progressWindow.Show(this);
+                    Application.DoEvents();
+                    return progressWindow;
+                }
+                catch
+                {
+                    progressWindow.Dispose();
+                    throw;
+                }
             }
             public MeshOptionsDialog(string units, bool hasFrames, string[] pointGroups, string[] openingGroups,
                 SymmetryAxis[] symmetryAxes, bool hasSelectedAreas = true)
@@ -8131,7 +8213,7 @@ namespace SapQuadTransitionPlugin
                         "docs", "SAP2000-Quad-Mesher-Atomic-Examples.pdf");
                     if (!File.Exists(report))
                     {
-                        MessageBox.Show(this, L("The verified examples PDF is missing from the installation.",
+                        ShowHostMessage(L("The verified examples PDF is missing from the installation.",
                             "Il PDF degli esempi verificati non e presente nell'installazione."),
                             WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
@@ -8229,10 +8311,11 @@ namespace SapQuadTransitionPlugin
                         try { confirmed = ConfirmApply(); }
                         finally { if (!confirmed) UnlockViewportAfterCommit(); }
                         if (!confirmed) return;
-                        Form operation = ShowCloseProgress(true);
+                        Form operation = null;
                         bool showWarnings = false;
                         try
                         {
+                        operation = ShowCloseProgress(true);
                         bool readyToCommit = false;
                         try { readyToCommit = ReleasePreviewModelLock("Apply"); }
                         finally { if (!readyToCommit) UnlockViewportAfterCommit(); }
@@ -8262,7 +8345,7 @@ namespace SapQuadTransitionPlugin
                             status.Text = LocalizeErrorMessage(exception.Message);
                             if (operation != null)
                             { operation.Tag = true; operation.Close(); operation.Dispose(); operation = null; }
-                            MessageBox.Show(this, status.Text, WindowTitle,
+                            ShowHostMessage(status.Text, WindowTitle,
                                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
                             return;
                         }
@@ -8305,6 +8388,7 @@ namespace SapQuadTransitionPlugin
                         {
                             if (operation != null)
                             { operation.Tag = true; operation.Close(); operation.Dispose(); }
+                            UnlockViewportAfterCommit();
                             if (showWarnings) ShowTransferWarnings();
                         }
                     }
@@ -8323,21 +8407,21 @@ namespace SapQuadTransitionPlugin
                     try { gmshPreviewOptions.CheckValues(); value = gmshPreviewOptions.ReadMaxSize(); }
                     catch (InvalidOperationException error)
                     {
-                        MessageBox.Show(this, error.Message, WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        ShowHostMessage(error.Message, WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
                     MaxSize = value;
                     if (PreferRegularMesh && StressRefinement)
-                    { MessageBox.Show(L("Regular meshing and local refinement are mutually exclusive.", "La mesh regolare e il raffinamento locale si escludono a vicenda."), WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+                    { ShowHostMessage(L("Regular meshing and local refinement are mutually exclusive.", "La mesh regolare e il raffinamento locale si escludono a vicenda."), WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
                     if (GenerateHoles && openingGroup.SelectedItem == null)
-                    { MessageBox.Show(L("Select an opening-boundary group.", "Selezionare un gruppo per il contorno delle aperture."), WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+                    { ShowHostMessage(L("Select an opening-boundary group.", "Selezionare un gruppo per il contorno delle aperture."), WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
                     if (GenerateCircularHoles)
                     {
                         double diameter;
                         if (holeGroup.SelectedItem == null)
-                        { MessageBox.Show(L("Select a hole-center group.", "Selezionare un gruppo di centri dei fori."), WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+                        { ShowHostMessage(L("Select a hole-center group.", "Selezionare un gruppo di centri dei fori."), WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
                         if (!TryParseLength(holeDiameter.Text, units, out diameter))
-                        { MessageBox.Show(L("Invalid hole diameter.", "Diametro del foro non valido."), WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+                        { ShowHostMessage(L("Invalid hole diameter.", "Diametro del foro non valido."), WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
                         HoleDiameter = diameter;
                         holeDiameter.Text = diameter.ToString("G9", CultureInfo.InvariantCulture);
                     }
@@ -8350,7 +8434,7 @@ namespace SapQuadTransitionPlugin
                 details.Click += delegate
                 {
                     if (qualityReport != null)
-                        using (var qualityDialog = new QualityReportDialog(qualityReport)) qualityDialog.ShowDialog(this);
+                        using (var qualityDialog = new QualityReportDialog(qualityReport)) ShowHostDialog(qualityDialog);
                 };
                 undo.Click += delegate
                 {
@@ -8367,10 +8451,11 @@ namespace SapQuadTransitionPlugin
                         DiscardCompletedForModelChange();
                         return;
                     }
-                    Form operation = ShowCloseProgress(false);
+                    LockViewportForCommit();
+                    Form operation = null;
                     try
                     {
-                    LockViewportForCommit();
+                    operation = ShowCloseProgress(false);
                     bool readyToUndo = false;
                     try { readyToUndo = ReleasePreviewModelLock("Undo"); }
                     finally { if (!readyToUndo) UnlockViewportAfterCommit(); }
@@ -8402,9 +8487,13 @@ namespace SapQuadTransitionPlugin
                     }
                     finally
                     {
-                        operation.Tag = true;
-                        operation.Close();
-                        operation.Dispose();
+                        if (operation != null)
+                        {
+                            operation.Tag = true;
+                            operation.Close();
+                            operation.Dispose();
+                        }
+                        UnlockViewportAfterCommit();
                     }
                 };
                 FormClosing += delegate(object sender, FormClosingEventArgs e)
@@ -8446,7 +8535,7 @@ namespace SapQuadTransitionPlugin
                 {
                     if (!string.IsNullOrEmpty(availableDownloadUrl))
                     {
-                        MessageBox.Show(this, L("The ZIP download will open in your browser. Extract it, close SAP2000 and CSiBridge, then run install_plugin.cmd from the extracted folder. Reopen the host application to use the new version.",
+                        ShowHostMessage(L("The ZIP download will open in your browser. Extract it, close SAP2000 and CSiBridge, then run install_plugin.cmd from the extracted folder. Reopen the host application to use the new version.",
                             "Il download dello ZIP si aprira nel browser. Estrailo, chiudi SAP2000 e CSiBridge, quindi esegui install_plugin.cmd dalla cartella estratta. Riapri l'applicazione per usare la nuova versione."),
                             WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
                         Process.Start(new ProcessStartInfo(availableDownloadUrl) { UseShellExecute = true });
@@ -9213,7 +9302,7 @@ namespace SapQuadTransitionPlugin
                 measurementToolTip.SetToolTip(status, (preservationWarning ?? "") + Environment.NewLine + details);
                 if (transferWarnings.Count == reportedTransferWarnings) return;
                 reportedTransferWarnings = transferWarnings.Count;
-                MessageBox.Show(this, L("Mesh created, but SAP2000 could not transfer or verify these properties " +
+                ShowHostMessage(L("Mesh created, but SAP2000 could not transfer or verify these properties " +
                     "(code 1). Assign and check them manually on the affected elements:",
                     "Mesh creata, ma SAP2000 non ha trasferito o verificato queste proprietà " +
                     "(codice 1). Assegnarle e verificarle manualmente sugli elementi interessati:") + Environment.NewLine + Environment.NewLine +
@@ -9369,7 +9458,7 @@ namespace SapQuadTransitionPlugin
                     L("Result: ", "Risultato: ") + elements + L(" elements, ", " elementi, ") + triangles +
                     L(" triangles. Quality: ", " triangoli. Qualita: ") +
                     (qualityReport.Passed ? L("acceptable", "accettabile") : L("review warnings", "verificare gli avvisi"));
-                MessageBox.Show(this, text, WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ShowHostMessage(text, WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             public void Fail(string message)
             {
@@ -9405,7 +9494,7 @@ namespace SapQuadTransitionPlugin
                 undo.Enabled = false;
                 undo.Text = L("Undo mesh", "Annulla mesh");
                 details.Enabled = false;
-                MessageBox.Show(this, LocalizeErrorMessage(message), WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ShowHostMessage(LocalizeErrorMessage(message), WindowTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 Activate();
             }
             private void ResetReady()

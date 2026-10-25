@@ -147,6 +147,16 @@ try {
         elseif ($version -eq '2.0.65') { '2.0.64' }
         elseif ($version -eq '2.0.66') { '2.0.65' }
         elseif ($version -eq '2.0.67') { '2.0.66' } else { '2.0.13' }
+    # Use the newest locally available previous build for the upgrade fixture;
+    # an extracted source ZIP without previous builds remains self-contained.
+    $availablePrevious = @(Get-ChildItem -LiteralPath $artifacts -Directory | ForEach-Object {
+        if ($_.Name -match '^Sap2000QuadMesher-(2[.]0[.]\d+)$' -and
+            [version]$Matches[1] -lt [version]$version -and
+            (Test-Path -LiteralPath (Join-Path $_.FullName 'SQMPluginInstaller.exe') -PathType Leaf)) {
+            [pscustomobject]@{ Name = $Matches[1]; Version = [version]$Matches[1] }
+        }
+    } | Sort-Object Version -Descending)
+    if ($availablePrevious.Count) { $previous = $availablePrevious[0].Name }
     $oldV2 = Join-Path $artifacts "Sap2000QuadMesher-$previous"
     if (Test-Path -LiteralPath (Join-Path $oldV2 'SQMPluginInstaller.exe') -PathType Leaf) {
         $trialV2 = Join-Path $build 'v2-upgrade-trial'

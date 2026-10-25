@@ -8,6 +8,7 @@ Add-Type -Path $ApiPath
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 public static class FEMeshWarningWindows {
     public static IntPtr HostWindow, ConfirmationWindow;
@@ -18,6 +19,37 @@ public static class FEMeshWarningWindows {
     public static extern IntPtr FindWindow(string className, string caption);
     [DllImport("user32.dll")]
     public static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+    private delegate bool WindowEnumerator(IntPtr window, IntPtr unused);
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(WindowEnumerator callback, IntPtr unused);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr window, StringBuilder title, int capacity);
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+    public static string Titles() {
+        StringBuilder titles = new StringBuilder();
+        EnumWindows((window, unused) => {
+            uint pid;
+            GetWindowThreadProcessId(window, out pid);
+            if (pid != (uint)System.Diagnostics.Process.GetCurrentProcess().Id) return true;
+            StringBuilder title = new StringBuilder(256);
+            if (GetWindowText(window, title, title.Capacity) > 0) titles.Append('[').Append(title).Append(']');
+            return true;
+        }, IntPtr.Zero);
+        return titles.ToString();
+    }
+    public static IntPtr FindTitle(string caption) {
+        IntPtr found = IntPtr.Zero;
+        EnumWindows((window, unused) => {
+            StringBuilder title = new StringBuilder(256);
+            if (GetWindowText(window, title, title.Capacity) > 0 && title.ToString() == caption) {
+                found = window;
+                return false;
+            }
+            return true;
+        }, IntPtr.Zero);
+        return found;
+    }
     public static void Watch(string caption) {
         ThreadPool.QueueUserWorkItem(_ => {
             for (int attempt = 0; attempt < 120; attempt++) {
@@ -51,6 +83,25 @@ $oldManifest = $env:SAP_QUAD_TEST_UPDATE_MANIFEST_JSON
 $env:SAP_QUAD_TEST_UPDATE_MANIFEST_JSON = '{}'
 $hostWindow = New-Object Windows.Forms.Form
 $hostWindow.Text = 'SAP2000 test host'
+$lockButton = New-Object Windows.Forms.Button
+$lockButton.Text = 'SAP2000 lock button'
+$lockButton.SetBounds(10, 10, 160, 32)
+$hostWindow.Controls.Add($lockButton)
+$panButton = New-Object Windows.Forms.Button
+$panButton.Text = 'Pan / zoom'
+$panButton.SetBounds(10, 52, 160, 32)
+$hostWindow.Controls.Add($panButton)
+$script:lockClicks = 0
+$script:panClicks = 0
+$script:warningDiagnostic = ''
+$lockButton.Add_Click({
+    # PerformClick bypasses the mouse hit test. A real click cannot reach a
+    # disabled SAP window; keep the simulated command subject to the same gate.
+    if (-not [FEMeshWarningWindows]::IsWindowEnabled($hostWindow.Handle)) { return }
+    $script:lockClicks++
+    $script:dialog.ReportModelLockViolation($script:warningDiagnostic)
+})
+$panButton.Add_Click({ $script:panClicks++ })
 $confirmation = New-Object Windows.Forms.Form
 $confirmation.Text = 'SAP2000 test unlock confirmation'
 $dialog = $null
@@ -58,21 +109,116 @@ try {
     $hostWindow.Show()
     $confirmation.Show()
     $dialog = $constructor.Invoke([object[]]@('m', $false, [string[]]@(), [string[]]@(), $axes, $true))
+    $script:dialog = $dialog
     $dialog.Show()
     $dialog.AllowViewportInteraction($hostWindow.Handle)
     [FEMeshWarningWindows]::HostWindow = $hostWindow.Handle
     [FEMeshWarningWindows]::ConfirmationWindow = $confirmation.Handle
-    [FEMeshWarningWindows]::Watch('FEMesh ' + $version)
-    $dialog.ReportModelLockViolation('Simulated unlock during FEMesh.')
-    if (-not [FEMeshWarningWindows]::Seen -or -not [FEMeshWarningWindows]::Observed -or
-        -not [FEMeshWarningWindows]::Dismissed) {
-        throw 'The warning did not block the SAP windows or could not be dismissed.'
+    $instanceFlags = [Reflection.BindingFlags]'Instance,NonPublic'
+    $generate = $type.GetField('generate', $instanceFlags).GetValue($dialog)
+    $undo = $type.GetField('undo', $instanceFlags).GetValue($dialog)
+    $details = $type.GetField('details', $instanceFlags).GetValue($dialog)
+    $status = $type.GetField('status', $instanceFlags).GetValue($dialog)
+    $progressTitle = if ($pluginType.GetField('useItalian', $flags).GetValue($null)) {
+        'FEMesh - Generazione'
+    } else { 'FEMesh - Generation' }
+    $dialog.BlockHostForOperation()
+    try {
+        $dialog.BeginWork('Preparing geometry...')
+        $progressWindow = [IntPtr]::Zero
+        for ($wait = 0; $wait -lt 80 -and $progressWindow -eq [IntPtr]::Zero; $wait++) {
+            Start-Sleep -Milliseconds 100
+            [Windows.Forms.Application]::DoEvents()
+            $progressWindow = [FEMeshWarningWindows]::FindTitle($progressTitle)
+        }
+        if ($progressWindow -eq [IntPtr]::Zero -or
+            -not [FEMeshWarningWindows]::IsWindowEnabled($progressWindow) -or
+            [FEMeshWarningWindows]::IsWindowEnabled($hostWindow.Handle) -or $generate.Enabled) {
+            throw "Generate progress did not keep SAP2000 blocked while allowing cancellation: progress=$progressWindow title=$progressTitle progressEnabled=$([FEMeshWarningWindows]::IsWindowEnabled($progressWindow)) hostEnabled=$([FEMeshWarningWindows]::IsWindowEnabled($hostWindow.Handle)) generateEnabled=$($generate.Enabled) visible=$([FEMeshWarningWindows]::Titles())."
+        }
+        $beforeClick = $script:lockClicks
+        $lockButton.PerformClick()
+        if ([FEMeshWarningWindows]::IsWindowEnabled($hostWindow.Handle) -or
+            $script:lockClicks -ne $beforeClick) {
+            throw 'The lock button reacted to a simulated click during Generate.'
+        }
+        $dialog.Cancelled()
+    } finally { $dialog.UnblockHostAfterOperation() }
+    if (-not [FEMeshWarningWindows]::IsWindowEnabled($hostWindow.Handle)) {
+        throw 'Generate progress left the host disabled after cancellation.'
     }
-    if (-not [FEMeshWarningWindows]::IsWindowEnabled($hostWindow.Handle) -or
-        -not [FEMeshWarningWindows]::IsWindowEnabled($confirmation.Handle)) {
-        throw 'SAP windows remained disabled after the warning was dismissed.'
+    $phases = @(
+        @{ Name='just-opened'; Clicks=1; Generate='Generate'; GenerateEnabled=$true; UndoEnabled=$false; DetailsEnabled=$false },
+        @{ Name='preview'; Clicks=3; Generate='Apply'; GenerateEnabled=$true; UndoEnabled=$true; DetailsEnabled=$true },
+        @{ Name='applied'; Clicks=1; Generate='Generate'; GenerateEnabled=$false; UndoEnabled=$false; DetailsEnabled=$true },
+        @{ Name='after-undo'; Clicks=1; Generate='Generate'; GenerateEnabled=$true; UndoEnabled=$false; DetailsEnabled=$false }
+    )
+    foreach ($phase in $phases) {
+        $generate.Text = $phase.Generate
+        $generate.Enabled = $phase.GenerateEnabled
+        $undo.Enabled = $phase.UndoEnabled
+        $details.Enabled = $phase.DetailsEnabled
+        $status.Text = "FEMesh phase: $($phase.Name)"
+        for ($attempt = 1; $attempt -le $phase.Clicks; $attempt++) {
+            [FEMeshWarningWindows]::Seen = [FEMeshWarningWindows]::Observed =
+                [FEMeshWarningWindows]::Dismissed = $false
+            [FEMeshWarningWindows]::Watch('FEMesh ' + $version)
+            $script:warningDiagnostic = "Simulated lock-button click: $($phase.Name) #$attempt"
+            $beforeClick = $script:lockClicks
+            $lockButton.PerformClick()
+            if ($script:lockClicks -ne $beforeClick + 1) {
+                throw "The enabled lock button did not react during $($phase.Name)/$attempt."
+            }
+            if (-not [FEMeshWarningWindows]::Seen -or -not [FEMeshWarningWindows]::Observed -or
+                -not [FEMeshWarningWindows]::Dismissed) {
+                throw "Warning $($phase.Name)/$attempt did not block the host/confirmation or could not be dismissed."
+            }
+            if (-not [FEMeshWarningWindows]::IsWindowEnabled($hostWindow.Handle) -or
+                -not [FEMeshWarningWindows]::IsWindowEnabled($confirmation.Handle)) {
+                throw "SAP windows remained disabled after warning $($phase.Name)/$attempt."
+            }
+            if ($generate.Enabled -ne $phase.GenerateEnabled -or $undo.Enabled -ne $phase.UndoEnabled -or
+                $details.Enabled -ne $phase.DetailsEnabled -or $generate.Text -ne $phase.Generate -or
+                $status.Text -ne "FEMesh phase: $($phase.Name)" -or $dialog.UndoFailure -ne $null -or
+                -not $dialog.Visible) {
+                throw "Warning $($phase.Name)/$attempt altered FEMesh's current phase."
+            }
+            $beforePan = $script:panClicks
+            $panButton.PerformClick()
+            if ($script:panClicks -ne $beforePan + 1) {
+                throw "Pan/zoom was not available after OK during $($phase.Name)/$attempt."
+            }
+        }
     }
-    'MODAL_LOCK_WARNING=PASS HOST_AND_CONFIRMATION_BLOCKED=YES RESTORED=YES'
+    $dialog.BlockHostForOperation()
+    try {
+        if ([FEMeshWarningWindows]::IsWindowEnabled($hostWindow.Handle)) {
+            throw 'Generate did not block host interaction.'
+        }
+        foreach ($applying in @($true,$false)) {
+            $progress = $type.GetMethod('ShowCloseProgress', [Reflection.BindingFlags]'Instance,Public,NonPublic').Invoke($dialog,[object[]]@($applying))
+            try {
+                if ([FEMeshWarningWindows]::IsWindowEnabled($hostWindow.Handle) -or
+                    $dialog.Enabled -or -not $progress.Visible -or -not $progress.Enabled) {
+                    throw 'Apply/Undo progress did not keep both the host and options window modal.'
+                }
+                $beforeClick = $script:lockClicks
+                $lockButton.PerformClick()
+                if ([FEMeshWarningWindows]::IsWindowEnabled($hostWindow.Handle) -or
+                    $script:lockClicks -ne $beforeClick) {
+                    throw 'The lock button reacted to a simulated click during Apply/Undo progress.'
+                }
+            } finally {
+                $progress.Tag = $true
+                $progress.Close(); $progress.Dispose()
+            }
+        }
+        if (-not $dialog.Enabled) { throw 'The options window remained disabled after progress finished.' }
+    } finally { $dialog.UnblockHostAfterOperation() }
+    if (-not [FEMeshWarningWindows]::IsWindowEnabled($hostWindow.Handle)) {
+        throw 'Host interaction was not restored after the progress window.'
+    }
+    'MODAL_LOCK_WARNING=PASS PHASES=OPEN_GENERATE_PREVIEW_APPLY_UNDO LOCK_CLICKS_BLOCKED_DURING_PROGRESS=3 LOCK_WARNINGS=6 PAN_ZOOM_AFTER_OK=PASS HOST_AND_CONFIRMATION_BLOCKED=YES PREVIEW_PRESERVED=YES'
 } finally {
     if ($dialog) { $dialog.Close(); $dialog.Dispose() }
     $confirmation.Close(); $confirmation.Dispose()

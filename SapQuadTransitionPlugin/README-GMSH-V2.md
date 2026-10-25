@@ -1,4 +1,4 @@
-# FEMesh 2.0.67 (in preparazione) — SAP2000 e CSiBridge
+# FEMesh 2.0.68 — SAP2000 e CSiBridge
 
 FEMesh suddivide aree selezionate in elementi shell prevalentemente quadrangolari con Gmsh. La voce del menu è **Tools → FEMesh**. Il nome tecnico della DLL e l'identità COM restano compatibili con le installazioni esistenti.
 

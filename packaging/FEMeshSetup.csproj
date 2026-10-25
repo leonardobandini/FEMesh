@@ -6,8 +6,8 @@
     <LangVersion>7.3</LangVersion>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <AssemblyName>FEMeshSetup</AssemblyName>
-    <Version>2.0.67</Version>
-    <FileVersion>2.0.67.0</FileVersion>
+    <Version>2.0.68</Version>
+    <FileVersion>2.0.68.0</FileVersion>
     <ApplicationIcon>..\img\quad-mesher.ico</ApplicationIcon>
     <DebugType>none</DebugType>
   </PropertyGroup>
